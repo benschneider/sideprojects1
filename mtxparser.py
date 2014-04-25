@@ -1,5 +1,5 @@
 '''
-MTX - file parser by Ben Schneider
+MTX and dat- file parser by Ben Schneider
 
 for now you can load it with 'execfile('mtx_parser.py)'
 it will add the following content.
@@ -41,20 +41,33 @@ def loaddat(*inputs):
     outputs = zip(*file_data)
     return outputs
 
-def savedat(*args):
-    '''filename, data, arguments'''
-    #args[1] = array(*args[1])
-    np.savetxt(*args, delimiter=',')
+def savedat(filename1,data1,**quarks):
+    #just use : np.savetxt(filename, data, delimiter = ',')
+    '''filename, data, arguments
+    simply uses numpy.savetext with a 
+    delimiter = ','    
+    
+    np.savetxt("QsQr.dat",stuff ,delimiter =',')    
+    '''
+    data1 = zip(*data1)
+    if 'delimiter' in quarks:
+        np.savetxt(filename1, data1 ,**quarks)    
+    else:
+        np.savetxt(filename1, data1 , delimiter = ',', **quarks)    
 
+    
+    
 def loadmtx(filename):
     '''
-     output = matrix, header
-     (access with:
-     output[0]  = header
-     output[1]  = Matrix
-     output[1][z][y][x] )
-
-     i.e.: mtx, header = loadmtx('filename.mtx')
+    Loads an mtx file (binary compressed file)
+    (first two lines of the MTX contain information of the data shape and
+    what units, limits are present)
+    i.e.: 
+    
+    mtx, header = loadmtx('filename.mtx')
+    
+    mtx     :   will contain a 3d numpy array of the data
+    header  :   will contain information on the labels and limits
     '''
     f = open(filename, 'rb')
 
@@ -93,17 +106,48 @@ def loadmtx(filename):
 # array([[1, 2],
 #	[3, 4],
 #	[5, 6]])
+#def test1(*test1,**test2):
+#    '''A function to test arcs and quarks in python'''
+#    if 'head' in test2:
+#        return test2
+#    else:
+#        return test1
 
-def savemtx(filename, *data):
+def savemtx(filename, *data, **quarks):
     '''MTX - file parser by Ben Schneider
-     input = 'filename.mtx',[header,matrix]
+       savemtx(filename, *data, **quarks):
+       quarks can be:
+
+        header = ['Units', 'Valuename',
+                'X-label', 'x-start', 'x-stop',
+                'Y-label', 'y-stop', 'x-start',
+                'Z-label', 'z-start', 'z-stop']
+        
+        where x,y,z-start and stop are replaced by a number in stringformat.
+        i.e.:
+
+        header = ['Units', 'Voltage',
+                'X-label', '0', '1',
+                'Y-label', '1', '0',
+                'Z-label', '0', '1']
+
+    then execute with:
+
+    myheader = ['Units', 'Voltage', 
+                'X-label', '0', '1', 
+                'Y-label', '1', '0',
+                'Z-label', '0', '1']
+    savemtx('myfile.mtx',my-3d-array, header = myheader)    
     '''
+
     f = open(filename, 'wb')
 
-    #if len(data[1]) == : #check if header was given
-    header = ",".join(data[1]) #write the header in the first line
-    f.write(header +'\n')
-
+    if 'header' in quarks:
+        header = ",".join(data[1]) #write the header in the first line
+        f.write(header +'\n')
+    else:
+        f.write(header +'\n')
+        
     s = len(data[0][0][0]), len(data[0][0]), len(data[0]), 8 #(x ,y ,z , 8)
     line = " ".join(str(b) for b in s) #'x y z 8'
     f.write(line +'\n')  #'x y z 8 \n'
