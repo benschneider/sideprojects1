@@ -1,9 +1,7 @@
 '''
 MTX and dat- file parser by Ben Schneider
 
-for now you can load it with 'execfile('mtx_parser.py)'
-it will add the following content.
-
+For use with gnuplot (ASCII) and spyview (BIN)
 content:
     loaddat : load an ASCII data file ( loaddat('file.dat') )
     savedat : save an ASCII data file ( savedat('file.dat') )
