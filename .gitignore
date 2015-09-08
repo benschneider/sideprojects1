@@ -1,2 +1,5 @@
 # Rope
 .ropeproject
+*.swp
+*.hdf5
+*.mtx
