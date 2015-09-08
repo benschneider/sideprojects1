@@ -1,0 +1,30 @@
+
+Ic = 6.54e-6/2
+Ir = 0.142e-6/2
+betac = ((4.0*Ic)/(pi*Ir))**2.0
+
+Ic2 = 5.22e-6/2
+Ir2 = 0.156e-6/2
+
+
+
+# g1.hardcopy(filename='output.eps', terminal='postscript', eps=True)
+#g1('set st d l')
+
+
+#github related:
+
+git init
+git clone /path/to/repository
+git clone username@host:/path/to/repository
+git add <filename>
+git status
+git commit -m "Commit message"
+git push origin master
+git remote add origin <server>
+git checkout -b feature_x #create a new branch named "feature_x" and switch to it using
+git checkout master #switch back to master
+git branch -d feature_x #and delete the branch again
+git push origin <branch> #a branch is not available to others unless you push the branch to your remote repository
+git tag 1.0.0 1b2e1d63ff #the 1b2e1d63ff stands for the first 10 characters of the commit id you want to reference with your tag.
+
