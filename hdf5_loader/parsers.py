@@ -49,6 +49,27 @@ def load_hdf5(filename):
     with h5py.File(filename, 'r') as f:
         hdf5data.data = np.array(f['Data']['Data'])
         hdf5data.channel = np.array(f['Data']['Channel names'])
+        hdf5data.d1 = hdf5data.data[:, 0, 0]
+        hdf5data.d2 = hdf5data.data[0, 1, :]
+        hdf5data.d3 = hdf5data.data[0, 2, :]
+
+        hdf5data.dim_2 = dim(name=hdf5data.channel[0][0],
+                             start=hdf5data.d1[0],
+                             stop=hdf5data.d1[-1],
+                             pt=len(hdf5data.d1),
+                             scale=1)
+
+        hdf5data.dim_3 = dim(name=hdf5data.channel[1][0],
+                             start=hdf5data.d2[0],
+                             stop=hdf5data.d2[-1],
+                             pt=len(hdf5data.d2),
+                             scale=1)
+
+        hdf5data.dim_1 = dim(name=hdf5data.channel[2][0],
+                             start=hdf5data.d3[0],
+                             stop=hdf5data.d3[-1],
+                             pt=len(hdf5data.d3),
+                             scale=1)
     return hdf5data
 
 
