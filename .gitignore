@@ -4,3 +4,8 @@
 *.hdf5
 *.mtx
 *.pyc
+*.pdf
+*.ps
+*.set
+*.svs
+xsection.dat
