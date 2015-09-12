@@ -4,7 +4,8 @@
 *.hdf5
 *.mtx
 *.pyc
-*.pdf
+# *.pdf
+mtx_files
 *.ps
 *.set
 *.svs
