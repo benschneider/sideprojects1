@@ -1,25 +1,17 @@
 import numpy as np
 from parsers import load_hdf5
-from parsers import get_hdf5_dataset
 from parsers import savemtx, make_header
 # import matplotlib.pyplot as plt
 from changeaxis import interp_y
 
-filename = "hdf5s//09//Data_0911//S1_475_DCE_MAP_6_fine.hdf5"
-d = load_hdf5(filename)
-d.c8 = get_hdf5_dataset(d, 8)  # Real data (MagAvg)
-d.c9 = get_hdf5_dataset(d, 9)  # Imag data (MagAvg)
-d.D1compx = 1j*d.c9.d
-d.D1compx += d.c8.d
-d.D1mag = np.absolute(d.D1compx)
-d.D1phase = np.angle(d.D1compx)
-
-d.c10 = get_hdf5_dataset(d, 10)  # Real data (MagAvg)
-d.c11 = get_hdf5_dataset(d, 11)  # Imag data (MagAvg)
-d.D2compx = 1j*d.c11.d
-d.D2compx += d.c10.d
-d.D2mag = np.absolute(d.D2compx)
-d.D2phase = np.angle(d.D2compx)
+d = load_hdf5('S1_471_DCE_MAP2.hdf5')
+d.cD1 = 1j*d.data[:, 6, :]
+d.cD1 += d.data[:, 5, :]
+d.D1mag = np.absolute(d.cD1)
+d.D1ang = np.angle(d.cD1)
+d.D1pow = d.data[:, 7, :]
+d.D1lev = d.data[:, 8, :]
+d.shape = d.data.shape
 
 xoff = 139.3e-3
 x1flux = 479.6e-3
@@ -43,8 +35,9 @@ d.dim_y2.stop = y2[-1]
 d.dim_y2.pt = len(y2)
 d.dim_y2.lin = y2
 
+
 header1 = make_header(d.dim_1, d.dim_2, d.dim_3, meas_data='(a.u)')
-savemtx('output//out1.mtx', MAT1, header=header1)
+savemtx('S1_471_DCE_MAP2_volt.mtx', MAT1, header=header1)
 
 header2 = make_header(d.dim_1, d.dim_y2, d.dim_3, meas_data='(a.u)')
-savemtx('output//out2.mtx', MAT2, header=header2)
+savemtx('S1_471_DCE_MAP2_wats.mtx', MAT2, header=header2)

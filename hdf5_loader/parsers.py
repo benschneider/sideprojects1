@@ -26,51 +26,73 @@ from shutil import copy
 import h5py
 
 
-def get_hdf5data(filename):
-    '''
-    Currently under construction!
-    requires manual addustments
-    '''
-    hdf5data = emptyClass()
-    with h5py.File(filename, 'r') as f:
-        hdf5data.magnet = np.array(f['Data']['Data'][:, 0, 0])
-        hdf5data.freq = np.array(f['Data']['Data'][0, 1, :])
-        D1real = np.array(f['Data']['Data'][:, 4, :])  # mag v.s. freq
-        D1imag = np.array(f['Data']['Data'][:, 5, :])  # mag v.s freq
-        hdf5data.D1complex = 1j*D1imag
-        hdf5data.D1complex += D1real
-        hdf5data.D1real = D1real
-        hdf5data.D1imag = D1imag
-    return hdf5data
-
-
 def load_hdf5(filename):
+    '''
+    Loads an HDF5 file which was created by Lab_Control soft.
+    This simply uses the h5py module to load hdf5 files.
+    '''
     hdf5data = emptyClass()
     with h5py.File(filename, 'r') as f:
         hdf5data.data = np.array(f['Data']['Data'])
         hdf5data.channel = np.array(f['Data']['Channel names'])
-        hdf5data.d1 = hdf5data.data[:, 0, 0]
-        hdf5data.d2 = hdf5data.data[0, 1, :]
-        hdf5data.d3 = hdf5data.data[0, 2, :]
 
-        hdf5data.dim_2 = dim(name=hdf5data.channel[0][0],
-                             start=hdf5data.d1[0],
-                             stop=hdf5data.d1[-1],
-                             pt=len(hdf5data.d1),
-                             scale=1)
-
-        hdf5data.dim_3 = dim(name=hdf5data.channel[1][0],
-                             start=hdf5data.d2[0],
-                             stop=hdf5data.d2[-1],
-                             pt=len(hdf5data.d2),
-                             scale=1)
-
-        hdf5data.dim_1 = dim(name=hdf5data.channel[2][0],
-                             start=hdf5data.d3[0],
-                             stop=hdf5data.d3[-1],
-                             pt=len(hdf5data.d3),
-                             scale=1)
     return hdf5data
+
+
+def get_hdf5_dataset(hdf5data, cnum):
+    '''
+    Currently under construction!
+    requires hdf5data set and selected channel number 'cnum'
+    returns an the selected data set and
+    objects of the cor. dimensions. (name, limits, points..)
+    '''
+    dataset = emptyClass()
+
+    def _create_dim(d1, num):
+        dim_ax = dim(name=hdf5data.channel[num][0],
+                     start=d1[0],
+                     stop=d1[-1],
+                     pt=len(d1),
+                     scale=1)
+        return dim_ax
+
+    dataset.d = hdf5data.data[:, cnum, :]
+    d2 = hdf5data.data[:, 0, 0]
+    dataset.dim_2 = _create_dim(d2, 0)
+    d3 = hdf5data.data[0, 1, :]
+    dataset.dim_3 = _create_dim(d3, 1)
+    d1 = hdf5data.data[0, 2, :]
+    dataset.dim_1 = _create_dim(d1, cnum)
+
+    return dataset
+
+
+def laad_hdf5_dims_old(hdf5data):
+    '''
+    Currently under construction!
+    requires manual addustments
+    '''
+    hdf5data.d1 = hdf5data.data[:, 0, 0]
+    hdf5data.d2 = hdf5data.data[0, 1, :]
+    hdf5data.d3 = hdf5data.data[0, 2, :]
+
+    hdf5data.dim_2 = dim(name=hdf5data.channel[0][0],
+                         start=hdf5data.d1[0],
+                         stop=hdf5data.d1[-1],
+                         pt=len(hdf5data.d1),
+                         scale=1)
+
+    hdf5data.dim_3 = dim(name=hdf5data.channel[1][0],
+                         start=hdf5data.d2[0],
+                         stop=hdf5data.d2[-1],
+                         pt=len(hdf5data.d2),
+                         scale=1)
+
+    hdf5data.dim_1 = dim(name=hdf5data.channel[2][0],
+                         start=hdf5data.d3[0],
+                         stop=hdf5data.d3[-1],
+                         pt=len(hdf5data.d3),
+                         scale=1)
 
 
 def ask_overwrite(filename):
