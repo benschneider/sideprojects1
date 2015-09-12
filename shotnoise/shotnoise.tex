@@ -1,0 +1,53 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{dcolumn}
+\usepackage{bm}
+\usepackage{hyperref}
+\usepackage{setspace}
+\usepackage[margin=2.5cm]{geometry}
+\doublespacing 
+
+\begin{document}
+
+\title{SQUID as a shot noise thermometer.}
+\maketitle
+
+\begin{abstract}
+A Squid at the end of a transmission line is used as a Shot Noise Thermometry.
+This is done by applying a DC current larger than the critical current  across the squid.
+For larger currents, the resistance of the squid becomes linear.
+The squid can then be used as a shot noise sample to calibrate the gain and the noise temperature 
+of the circuit.
+\end{abstract}
+
+\begin{eqnarray}
+S_I (f, V, T, R) &=&  \frac{2k_BT}{R}  
+\left[
+\frac{eV + hf}{2k_BT} 
+coth \left( \frac{eV + hf}{2k_BT} \right) +
+\frac{eV - hf}{2k_BT} 
+coth \left( \frac{eV - hf}{2k_BT} \right) 
+\right]
+\end{eqnarray}
+
+For a digitizer BW < 
+\begin{eqnarray}
+P(f, V, T, R) &=& GBW 
+\left[ 
+k_B Tn(f) + 
+\left(
+\frac{Z_0}{Z_0 + R}
+\right)^2
+S_I(f, V, T, R)
+\right]
+\end{eqnarray}
+
+\begin{eqnarray}
+Tn(f) &=&
+\left[ 
+
+\right]
+\end{eqnarray}
+
+\end{document}
