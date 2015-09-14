@@ -36,18 +36,20 @@ def load_hdf5(filename):
         hdf5data.data = np.array(f['Data']['Data'])
         hdf5data.channel = np.array(f['Data']['Channel names'])
 
+    create_hdf5_dims_2d(hdf5data)  # add axes, and labels
+    hdf5data.shape = hdf5data.data[:, 1, :].shape
+
     return hdf5data
 
 
-def get_hdf5_dataset(hdf5data, cnum):
+def create_hdf5_dims_2d(hdf5data):
     '''
     Currently under construction!
-    requires hdf5data set and selected channel number 'cnum'
+    requires hdf5data set and selected channel number 'cname'
     returns an the selected data set and
     objects of the cor. dimensions. (name, limits, points..)
+    np. array shape is as (n1, n2, n3)
     '''
-    dataset = emptyClass()
-
     def _create_dim(d1, num):
         dim_ax = dim(name=hdf5data.channel[num][0],
                      start=d1[0],
@@ -56,15 +58,18 @@ def get_hdf5_dataset(hdf5data, cnum):
                      scale=1)
         return dim_ax
 
-    dataset.d = hdf5data.data[:, cnum, :]
-    d2 = hdf5data.data[:, 0, 0]
-    dataset.dim_2 = _create_dim(d2, 0)
-    d3 = hdf5data.data[0, 1, :]
-    dataset.dim_3 = _create_dim(d3, 1)
-    d1 = hdf5data.data[0, 2, :]
-    dataset.dim_1 = _create_dim(d1, cnum)
+    # lab-control soft changes the data in a strange way:
+    # dim 1 <- channel 2
+    # dim_2 <- channel 1
+    # dim_3 <- channel 3
 
-    return dataset
+    d0 = hdf5data.data[:, 0, 0]
+    d1 = hdf5data.data[0, 1, :]
+    d2 = hdf5data.data[0, 2, :]
+
+    hdf5data.n2 = _create_dim(d0, 0)
+    hdf5data.n1 = _create_dim(d1, 1)
+    hdf5data.n3 = _create_dim(d2, 2)
 
 
 def laad_hdf5_dims_old(hdf5data):

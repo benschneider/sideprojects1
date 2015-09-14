@@ -16,4 +16,4 @@ def interp_y(y, zmat, factor = 10):
         newline = griddata(y, zmat[:, i], y2, method='linear')
         resultmatrix = np.dstack((resultmatrix, newline))
 
-    return np.array(y2), np.array(resultmatrix[:, :, :-2])
+    return np.array(y2), np.array(resultmatrix[0, :, :-1])
