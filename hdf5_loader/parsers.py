@@ -40,7 +40,7 @@ def load_hdf5(filename):
         hdf5data.stepDict = dict(f['Step config'])
         hdf5data.stepInst = stepConfig
         hdf5data.stepItems = [np.array(
-            np.array(f['Step config'][stepInstrument]['Step items']))
+            f['Step config'][stepInstrument]['Step items'])
             for stepInstrument in stepConfig]
 
     create_hdf5_dims_2d(hdf5data)  # add axes, and labels
@@ -55,28 +55,27 @@ def create_hdf5_dims_2d(hdf5data):
     returns an the selected data set and
     objects of the cor. dimensions. (name, limits, points..)
     np. array shape is as (n1, n2, n3)
-    '''
-    def _create_dim(num, sPar, sInst):
+
+    def _create_dim(sPar, sInst):
         dim_ax = dim(name=sInst,
                      start=sPar[3],
                      stop=sPar[4],
                      pt=sPar[8],
                      scale=1)
-        if num > 1:
-            # requirement to reshape the data
-            # np.reshape(data, ...)
-            pass
         return dim_ax
 
     # Run through every Instrument which was used to sweep
     # load its sweep parameter
     # create a sweep object for it
-    hdf5data.sweepObj = [
-        [_create_dim(num, sPar, sInst)
-         for num, sPar in enumerate(hdf5data.stepDict[sInst]['Step items'])]
-        for sInst in hdf5data.stepDict]
+    # Instruments = [sInst for sInst in hdf5data.stepDict]
+    hdf5data.sweepObj = [np.array(_create_dim(num, sPar, sInst))
+                         for sInst in hdf5data.stepDict
+                         for num, sPar in enumerate(
+                             hdf5data.stepDict[sInst]['Step items'])]
 
+    # why does it run in a console but not when executing it ???
     '''
+
     def _create_dim(d1, num):
         dim_ax = dim(name=hdf5data.channel[num][0],
                      start=d1[0],
@@ -91,7 +90,6 @@ def create_hdf5_dims_2d(hdf5data):
     hdf5data.n2 = _create_dim(d0, 0)
     hdf5data.n1 = _create_dim(d1, 1)
     hdf5data.n3 = _create_dim(d2, 2)
-    '''
 
 
 def laad_hdf5_dims_old(hdf5data):
