@@ -35,6 +35,12 @@ def load_hdf5(filename):
     with h5py.File(filename, 'r') as f:
         hdf5data.data = np.array(f['Data']['Data'])
         hdf5data.channel = np.array(f['Data']['Channel names'])
+        stepConfig = np.array(f['Step config'])
+        hdf5data.stepInst = stepConfig
+        hdf5data.stepItems = [np.array(np.array(f['Step config']
+                                                [stepInstrument]
+                                                ['Step items']))
+                              for stepInstrument in stepConfig]
 
     create_hdf5_dims_2d(hdf5data)  # add axes, and labels
     hdf5data.shape = hdf5data.data[:, 1, :].shape
