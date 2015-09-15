@@ -1,7 +1,0 @@
-22 serialization::archive 12 6 10 rotate ccw 0 1 0
-0 10 rotate ccw 48 Rotate the image by 90 degrees counter clockwise 1 0 0 0 0 0 8 even odd 0
-1 8 even odd 54 Extract even or odd rows, optionally flipping odd rows 1 2 2 0 0 0 5 !Even 0.00000000000000000e+00 14 !Flip odd rows 0.00000000000000000e+00 9 rotate cw 0
-2 9 rotate cw 40 Rotate the image by 90 degrees clockwise 1 0 0 0 8 autoflip 0
-3 8 autoflip 48 Flip axes so that more neg end is on left/bottom 1 0 0 0 10 scale data 0
-4 10 scale data 48 Scale and center the data (change dynamic range) 1 1 1 0 6 Factor 2.25000000000000000e+09 11 sub linecut 0
-5 11 sub linecut 34 Subtract a linecut from every line 1 3 3 0 8 Line Num 5.00000000000000000e+02 11 !Horizontal 1.00000000000000000e+00 13 .Current Line 0.00000000000000000e+00
