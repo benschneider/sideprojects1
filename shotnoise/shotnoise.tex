@@ -31,23 +31,34 @@ coth \left( \frac{eV - hf}{2k_BT} \right)
 \right]
 \end{eqnarray}
 
-For a digitizer BW < 
+For a digitizer with a bandwidth B and a gain G the Power is equal to:
 \begin{eqnarray}
-P(f, V, T, R) &=& GBW 
+P(f, V, T, R) &=& G B 
 \left[ 
 k_B Tn(f) + 
 \left(
 \frac{Z_0}{Z_0 + R}
 \right)^2
 S_I(f, V, T, R)
-\right]
-\end{eqnarray}
-
-\begin{eqnarray}
+\right] \\
+%
 Tn(f) &=&
-\left[ 
-
-\right]
+\left[ T_{nc} (1- | \mathrm{T} |^2) + \frac{T_{nw}}{G_L}
+\right]\\
+%
+\mathrm{T} &=& \frac{Z_0-R}{R+Z_0}
 \end{eqnarray}
+
+Where, the squid resistance is R, $Z_0$ is the impedance of the lines (50 $\Omega$) and
+Tn is the noise temperature of Network Chain.
+$T_nc$ is the noise temperature at the first HEMT amplifier and $T_{nw}$ is the noise temperature of rest of the network.
+
+
+
+
+
+
+
+
 
 \end{document}
