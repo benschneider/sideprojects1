@@ -35,16 +35,16 @@ def load_hdf5(filename):
     with h5py.File(filename, 'r') as f:
         hdf5data.data = np.array(f['Data']['Data'])
         hdf5data.channel = np.array(f['Data']['Channel names'])
-        stepConfig = np.array(f['Step config'])
+        # stepConfig = np.array(f['Step config'])
+        stepConfig = f['Step config'].keys()
+        hdf5data.stepDict = dict(f['Step config'])
         hdf5data.stepInst = stepConfig
-        hdf5data.stepItems = [np.array(np.array(f['Step config']
-                                                [stepInstrument]
-                                                ['Step items']))
-                              for stepInstrument in stepConfig]
+        hdf5data.stepItems = [np.array(
+            np.array(f['Step config'][stepInstrument]['Step items']))
+            for stepInstrument in stepConfig]
 
     create_hdf5_dims_2d(hdf5data)  # add axes, and labels
     hdf5data.shape = hdf5data.data[:, 1, :].shape
-
     return hdf5data
 
 
@@ -56,6 +56,27 @@ def create_hdf5_dims_2d(hdf5data):
     objects of the cor. dimensions. (name, limits, points..)
     np. array shape is as (n1, n2, n3)
     '''
+    def _create_dim(num, sPar, sInst):
+        dim_ax = dim(name=sInst,
+                     start=sPar[3],
+                     stop=sPar[4],
+                     pt=sPar[8],
+                     scale=1)
+        if num > 1:
+            # requirement to reshape the data
+            # np.reshape(data, ...)
+            pass
+        return dim_ax
+
+    # Run through every Instrument which was used to sweep
+    # load its sweep parameter
+    # create a sweep object for it
+    hdf5data.sweepObj = [
+        [_create_dim(num, sPar, sInst)
+         for num, sPar in enumerate(hdf5data.stepDict[sInst]['Step items'])]
+        for sInst in hdf5data.stepDict]
+
+    '''
     def _create_dim(d1, num):
         dim_ax = dim(name=hdf5data.channel[num][0],
                      start=d1[0],
@@ -64,18 +85,13 @@ def create_hdf5_dims_2d(hdf5data):
                      scale=1)
         return dim_ax
 
-    # lab-control soft changes the data in a strange way:
-    # dim 1 <- channel 2
-    # dim_2 <- channel 1
-    # dim_3 <- channel 3
-
     d0 = hdf5data.data[:, 0, 0]
     d1 = hdf5data.data[0, 1, :]
     d2 = hdf5data.data[0, 2, :]
-
     hdf5data.n2 = _create_dim(d0, 0)
     hdf5data.n1 = _create_dim(d1, 1)
     hdf5data.n3 = _create_dim(d2, 2)
+    '''
 
 
 def laad_hdf5_dims_old(hdf5data):
