@@ -22,11 +22,11 @@ of the circuit.
 \end{abstract}
 
 \begin{eqnarray}
-S_I (f, V, T, R) &=&  \frac{2k_BT}{R}  
+S_I (f, V, T, R) &=&  \frac{k_BT}{R}  
 \left[
-\frac{eV + hf}{2k_BT} 
+\frac{eV + hf}{k_BT} 
 coth \left( \frac{eV + hf}{2k_BT} \right) +
-\frac{eV - hf}{2k_BT} 
+\frac{eV - hf}{k_BT} 
 coth \left( \frac{eV - hf}{2k_BT} \right) 
 \right]
 \end{eqnarray}
@@ -37,7 +37,7 @@ P(f, V, T, R) &=& G B
 \left[ 
 k_B Tn(f) + 
 \left(
-\frac{Z_0}{Z_0 + R}
+\frac{R}{Z_0 + R}
 \right)^2
 S_I(f, V, T, R)
 \right] \\
@@ -46,7 +46,7 @@ Tn(f) &=&
 \left[ T_{nc} (1- | \mathrm{T} |^2) + \frac{T_{nw}}{G_L}
 \right]\\
 %
-\mathrm{T} &=& \frac{Z_0-R}{R+Z_0}
+\mathrm{T} &=& \frac{Z_0-R}{Z_0 + R}
 \end{eqnarray}
 
 Where, the squid resistance is R, $Z_0$ is the impedance of the lines (50 $\Omega$) and
