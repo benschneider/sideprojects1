@@ -4,7 +4,7 @@ from parsers import savemtx, make_header
 # import matplotlib.pyplot as plt
 # from changeaxis import interp_y
 # from scipy.constants import Boltzmann as Kb
-from scipy.constants import h, e, pi
+# from scipy.constants import h, e, pi
 
 # filein = "S1_511_shot_100mV_4924_5217MHz"
 # filein = "S1_514_S11_4924_5217MHz"
