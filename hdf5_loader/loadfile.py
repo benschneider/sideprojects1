@@ -65,7 +65,7 @@ d.n3.lin = (d.n3.lin-xoff)/x1flux + 0.5
 d.n3.start = d.n3.lin[0]
 d.n3.stop = d.n3.lin[-1]
 d.n3.name = 'Flux/Flux0'
-
+# (x-140.5e-3)/479.6e-3+ 0.5
 # header1 = make_header(d.n3, d.n2, d.n1, meas_data=('Photons [#]'))
 header1 = make_header(d.n3, d.n2, d.n1, meas_data=('Pow [W]'))
 savemtx('mtx_out//' + filein + '.mtx', MAT1, header=header1)

@@ -54,7 +54,7 @@ MAT1[4] = d.D1Pow
 MAT1[5] = d.D2Pow
 
 
-header1 = make_header(d.n1, d.n2, d.n2, meas_data='(a.u)')
+header1 = make_header(d.n1, d.n2, d.n2, meas_data='est. Photon #')
 savemtx('output//out1.mtx', MAT1, header=header1)
 
 y = (d.n2.lin*d.n2.lin/50.0)  # position of the data
@@ -66,5 +66,5 @@ d.dim_y2.pt = len(y2)
 d.dim_y2.lin = y2
 d.dim_y2.name = 'Pump power (W)'
 
-header2 = make_header(d.n1, d.dim_y2, d.n2, meas_data='(a.u)')
+header2 = make_header(d.n1, d.dim_y2, d.n2, meas_data='est. Photon #')
 savemtx('output//out2.mtx', MAT2, header=header2)
