@@ -201,18 +201,22 @@ def loadcsv(filename, delim=';'):
     return data.transpose()
 
 
-def loadmtx(filename):
+def loadmtx(filename, getDim=True, getHeader=False):
     '''
     Loads an mtx file (binary compressed file)
     (first two lines of the MTX contain information of the data shape and
     what units, limits are present)
     i.e.:
-
+    getDim True or False toggles return of dims
+    getHeader similar toggles return of header info
     mtx, header = loadmtx('filename.mtx')
 
-    mtx     :   will contain a 3d numpy array of the data
-    header  :   will contain information on the labels and limits
+    mtx         :  3d numpy array of the data
+    header      :  Information on the labels and limits
+    d1,d2,d3    :  Objects containing information on each dimension
+    dz          :  Colourscale Name
     '''
+
     with open(filename, 'rb') as f:
 
         line = f.readline()
@@ -232,7 +236,16 @@ def loadmtx(filename):
     else:
         data = unpack('d'*(s[2]*s[1]*s[0]), raw)  # uses double
         M = np.reshape(data, (s[2], s[1], s[0]), order="F")
-    return M, header
+
+    d1, d2, d3, dz = read_header(header, Data=M)
+
+    if getHeader is True:
+        if getDim is True:
+            return M, header, d1, d2, d3, dz
+        else:
+            return M, header
+    else:
+        return M, d1, d2, d3, dz
 
 
 # note: reshape modes
