@@ -1,7 +1,7 @@
 import numpy as np
-from parsers import load_hdf5, dim
+from parsers import load_hdf5  # , dim
 from parsers import savemtx, make_header
-from scipy.optimize import curve_fit
+# from scipy.optimize import curve_fit
 # import matplotlib.pyplot as plt
 # from changeaxis import interp_y
 # from scipy.constants import Boltzmann as Kb
@@ -18,11 +18,22 @@ from scipy.optimize import curve_fit
 # filein = 'S1_514_DCE_MAP_low_pow'
 # folder = "hdf5s//09//Data_0912//"
 # filein = 'S1_482_shot_5090_5019MHz'
-folder = "hdf5s//09//Data_0921//"
-filein = 'S1_520_shot_BPF3'
+# folder = "hdf5s//09//Data_0921//"
+# filein = 'S1_520_shot_BPF3'
+
+folder = "hdf5s//10//Data_1022//"
+filein = 'S1_631_SN_G100_BPF4'
+
 d = load_hdf5(folder+filein+'.hdf5')
 
+
 def get_MP(d, chnum):
+    '''
+    This function is used to obtain the magnitude and phase from
+    a complex data set.
+    It assumes that the next channel is part of the complex number.
+    real + i* imaginary
+    '''
     compx = 1j*d.data[:, chnum+1, :]
     compx += d.data[:, chnum, :]
     phase = np.unwrap(zip(*np.angle(compx)))
@@ -30,10 +41,10 @@ def get_MP(d, chnum):
 
 
 MAT1 = np.zeros([9, d.shape[0], d.shape[1]])
-MAT1[0] = d.data[:, 3, :]
-MAT1[1] = d.data[:, 4, :]
-MAT1[2], MAT1[3] = get_MP(d, 5)
-MAT1[4], MAT1[5] = get_MP(d, 7)
+MAT1[0] = d.data[:, 11, :]
+MAT1[1] = d.data[:, 12, :]
+MAT1[2], MAT1[3] = get_MP(d, 3)
+MAT1[4], MAT1[5] = get_MP(d, 5)
 MAT1[6] = d.data[:, 13, :]
 MAT1[7] = d.data[:, 14, :]
 MAT1[8] = d.data[:, 15, :]
@@ -119,5 +130,5 @@ savemtx('mtx_out//' + filein + '.mtx', M2, header=header1)
 header2 = make_header(d.n3, d.n2[1], d.n1, meas_data=('a.u.'))
 savemtx('mtx_out//' + filein + '2' + '.mtx', M3, header=header2)
 '''
-header1 = make_header(d.n3, d.n2, d.n1, meas_data=('Pow [W]'))
+header1 = make_header(d.n1, d.n2, d.n3, meas_data=('Pow [W]'))
 savemtx('mtx_out//' + filein + '.mtx', MAT1, header=header1)
