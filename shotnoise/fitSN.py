@@ -1,8 +1,10 @@
 import numpy as np
-from parsers import savemtx, loadmtx
-from scipy.optimize import curve_fit, leastsq
+from parsers import savemtx, loadmtx, make_header
+from scipy.optimize import curve_fit  # , leastsq
+# import scipy.optimize
 from scipy.constants import Boltzmann as Kb
 from scipy.constants import h, e  # , pi
+from scipy.ndimage.filters import gaussian_filter1d
 import matplotlib.pyplot as plt
 
 # Start values
@@ -19,6 +21,9 @@ RTR = 1009.1  # Resistance at RT in kOhm in front of V output
 folder = 'mtx_out//'
 filein = 'S1_631_SN_G100_BPF4'
 M1, d1, d2, d3, dz = loadmtx('mtx_out//' + filein + '.mtx')
+# data = loadmtx('mtx_out//' + filein + '.mtx')
+M1 = data[0]
+
 
 d1.scale = 1000.0/RTR  # scale to uAmp
 d1.update_lin()
@@ -26,19 +31,6 @@ IVs = M1[8]
 IVs = IVs * 1000.0  # scale to uVolts
 PD1 = M1[0]
 PD2 = M1[1]
-
-# 200, 2300
-# crop data to be fitted
-d1.lin2 = d1.lin[200:2300]
-d1.pt = 2300-200
-IVs2 = IVs[:, 200:2300]
-PD12 = PD1[:, 200:2300]
-PD22 = PD2[:, 200:2300]
-
-d1.lin = d1.lin2
-IVs = IVs2
-PD1 = PD12
-PD2 = PD22
 
 
 def xderiv(d2MAT, dx=1.0, axis=0):
@@ -71,6 +63,9 @@ def xderiv(d2MAT, dx=1.0, axis=0):
 dx1 = d1.lin[1] - d1.lin[0]
 dIV = xderiv(IVs, dx1)
 dIVm = np.mean(dIV, axis=0)
+# Calculate a Gausian filter across it to rid of some noise
+dRm = gaussian_filter1d(dIVm, 5)  # 1d array, num of points to filter
+
 plt.close()
 plt.figure(1)
 plt.plot(d1.lin, dIVm)
@@ -81,37 +76,69 @@ def find_nearest(someArray, value):
     return idx
 
 
-def Rm(x):
-    return np.abs(dIVm[x])
+def Rm(x, c=0):
+    if c == 1:
+        return np.abs(dRm2[x])
+    if c == 0:
+        return np.abs(dRm[x])
 
 
-def fitfunc(x, G, Tn, T):
-    R = Rm(x)
+def fitfunc(x, G, Tn, T, c):
+    R = Rm(x, c)
     I = d1.lin[x]*1e-6  # because needs to be in Amps here
     E1 = (e*I*R+h*f)/(2*Kb*T)
     E2 = (e*I*R-h*f)/(2*Kb*T)
     Si = ((2*Kb*T/R) * (E1/np.tanh(E1) + E2/np.tanh(E2)))
-    return (B*G*(Si * Rm(x)**2 + 4.0*Kb*T*Rm(x)
-                 + 4.0*Kb*Tn*Z0*(Rm(x)**2 + Zopt*Zopt)/(Z0*Z0 + Zopt*Zopt))
-            * (Z0/((Rm(x)+Z0)*(Rm(x)+Z0))))
+    return (B*G*(Si * R**2 + 4.0*Kb*T*R + 4.0*Kb*Tn*Z0
+                 * (R**2+Zopt*Zopt)/(Z0*Z0+Zopt*Zopt))
+            * (Z0/((R+Z0)*(R+Z0))))
 
 
-def fitfun2(x, G, Tn):
+def fitfun2(x, G, Tn, c=1):
     T = 0.012
-    return fitfunc(x, G, Tn, T)*1e9
+    return fitfunc(x, G, Tn, T, c)*1e12
 
-xdata = range(d1.pt)
-ydata = PD1[50]*1e9
 # initguess = [G, Tn, T]
-initguess = [G, Tn]
+initguess1 = [G, Tn]
+initguess2 = [G, Tn]
 
-popt, pcov = curve_fit(fitfun2, xdata, ydata, p0=initguess)
-G2, Tn2 = popt
 
-y2 = fitfun2(xdata, G2, Tn2)
+# crop data to be fitted
+start1 = 200
+stop1 = 800
+start2 = 1600
+stop2 = 2300
+dRm2 = dRm
+xdata2 = np.concatenate((range(start1, stop1), range(start2, stop2)), axis=0)
+PD12 = np.concatenate((PD2[:, start1:stop1], PD1[:, start2:stop2]), axis=1)
+PD22 = np.concatenate((PD2[:, start1:stop1], PD2[:, start2:stop2]), axis=1)
+numN = PD12.shape[0]
+G1G2Tn1Tn2 = np.zeros([numN, 4])
+
+i = 0
+for i in range(numN):
+    ydata1 = PD12[i]*1e12
+    ydata2 = PD22[i]*1e12
+    popt, pcov = curve_fit(fitfun2, xdata2, ydata1, p0=initguess1)
+    popt2, pcov2 = curve_fit(fitfun2, xdata2, ydata2, p0=initguess2)
+    initguess1 = popt  # for the next position
+    initguess2 = popt2
+    G1G2Tn1Tn2[i, 0], G1G2Tn1Tn2[i, 1] = popt
+    G1G2Tn1Tn2[i, 2], G1G2Tn1Tn2[i, 3] = popt2
+
+# def func(params) = ydata - fitfun2(xdata, params)
+# scipy.optimize.leastsq(
+
+ydata = PD1[50]*1e12
+xdata = range(PD1.shape[1])
+y2 = fitfun2(xdata, G1G2Tn1Tn2[50, 0], G1G2Tn1Tn2[50, 1], c=0)
+error = ydata - y2
 plt.figure(2)
 plt.plot(d1.lin, ydata)
 plt.plot(d1.lin, y2)
 
-# header1 = make_header(d.n1, d.n2, d.n3, meas_data=('Pow [W]'))
-# savemtx('mtx_out//' + filein + '.mtx', MAT1, header=header1)
+
+MAT1 = np.zeros([1, G1G2Tn1Tn2.shape[0], G1G2Tn1Tn2.shape[1]])
+MAT1[0, :, :] = G1G2Tn1Tn2
+header1 = make_header(d1, d2, d3, meas_data=('Gain'))
+savemtx('mtx_out//' + filein + 'test.mtx', MAT1, header=header1)

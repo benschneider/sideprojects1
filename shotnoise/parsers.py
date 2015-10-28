@@ -213,8 +213,8 @@ def loadmtx(filename, getDim=True, getHeader=False):
 
     mtx         :  3d numpy array of the data
     header      :  Information on the labels and limits
-    d1,d2,d3    :  Objects containing information on each dimension
-    dz          :  Colourscale Name
+    d.d1,d.d2,d.d3    :  Objects containing information on each dimension
+    d.dz          :  Colourscale Name
     '''
 
     with open(filename, 'rb') as f:
@@ -334,6 +334,7 @@ def read_header(head, **quark):
     d1 = 1
     d2 = 1
     d3 = 1
+
     if 'Data' in quark:
         dd = quark['Data']
         d1 = dd.shape[2]
