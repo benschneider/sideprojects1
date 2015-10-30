@@ -20,9 +20,14 @@ from parsers import savemtx, make_header
 # filein = 'S1_482_shot_5090_5019MHz'
 # folder = "hdf5s//09//Data_0921//"
 # filein = 'S1_520_shot_BPF3'
+# folder = "hdf5s//10//Data_1022//"
+# filein = 'S1_631_SN_G100_BPF4'
 
-folder = "hdf5s//10//Data_1022//"
-filein = 'S1_631_SN_G100_BPF4'
+#folder = "hdf5s//10//Data_1029//"
+#filein = 'S1_653_SN_4p1_4p5_BPF7'
+
+folder = "hdf5s//10//Data_1028//"
+filein = 'S1_649_DCE_4p1_4p5_BPF7'
 
 d = load_hdf5(folder+filein+'.hdf5')
 
@@ -39,15 +44,25 @@ def get_MP(d, chnum):
     phase = np.unwrap(zip(*np.angle(compx)))
     return np.abs(compx), zip(*phase)
 
+# # For Shotnoise Data
+# MAT1 = np.zeros([9, d.shape[0], d.shape[1]])
+# MAT1[0] = d.data[:, 9, :]
+# MAT1[1] = d.data[:, 10, :]
+# MAT1[2], MAT1[3] = get_MP(d, 2)
+# MAT1[4], MAT1[5] = get_MP(d, 4)
+# MAT1[6] = d.data[:, 11, :]
+# MAT1[7] = d.data[:, 12, :]
+# MAT1[8] = d.data[:, 13, :]
 
-MAT1 = np.zeros([9, d.shape[0], d.shape[1]])
-MAT1[0] = d.data[:, 11, :]
-MAT1[1] = d.data[:, 12, :]
-MAT1[2], MAT1[3] = get_MP(d, 3)
-MAT1[4], MAT1[5] = get_MP(d, 5)
-MAT1[6] = d.data[:, 13, :]
-MAT1[7] = d.data[:, 14, :]
-MAT1[8] = d.data[:, 15, :]
+
+MAT1 = np.zeros([10, d.shape[0], d.shape[1]])
+MAT1[0] = d.data[:, 10, :]
+MAT1[1] = d.data[:, 11, :]
+MAT1[2], MAT1[3] = get_MP(d, 2)
+MAT1[4], MAT1[5] = get_MP(d, 4)
+MAT1[5], MAT1[6] = get_MP(d, 6)
+MAT1[7], MAT1[8] = get_MP(d, 8)
+MAT1[9] = d.data[:, 14, :]
 
 '''
 # scale data to photon number
