@@ -4,8 +4,8 @@ from parsers import savemtx, make_header
 # from scipy.optimize import curve_fit
 # import matplotlib.pyplot as plt
 # from changeaxis import interp_y
-# from scipy.constants import Boltzmann as Kb
-# from scipy.constants import h, e, pi
+from scipy.constants import Boltzmann as Kb
+from scipy.constants import h, e, pi
 
 # filein = "S1_511_shot_100mV_4924_5217MHz"
 # filein = "S1_514_S11_4924_5217MHz"
@@ -22,10 +22,8 @@ from parsers import savemtx, make_header
 # filein = 'S1_520_shot_BPF3'
 # folder = "hdf5s//10//Data_1022//"
 # filein = 'S1_631_SN_G100_BPF4'
-
-#folder = "hdf5s//10//Data_1029//"
-#filein = 'S1_653_SN_4p1_4p5_BPF7'
-
+# folder = "hdf5s//10//Data_1030//"
+# filein = 'S1_655_SN_4p1_4p5_BPF7'
 folder = "hdf5s//10//Data_1028//"
 filein = 'S1_649_DCE_4p1_4p5_BPF7'
 
@@ -44,38 +42,47 @@ def get_MP(d, chnum):
     phase = np.unwrap(zip(*np.angle(compx)))
     return np.abs(compx), zip(*phase)
 
-# # For Shotnoise Data
-# MAT1 = np.zeros([9, d.shape[0], d.shape[1]])
-# MAT1[0] = d.data[:, 9, :]
-# MAT1[1] = d.data[:, 10, :]
-# MAT1[2], MAT1[3] = get_MP(d, 2)
-# MAT1[4], MAT1[5] = get_MP(d, 4)
-# MAT1[6] = d.data[:, 11, :]
-# MAT1[7] = d.data[:, 12, :]
-# MAT1[8] = d.data[:, 13, :]
+'''
+# For Shotnoise Data
+MAT1 = np.zeros([9, d.shape[0], d.shape[1]])
+MAT1[0] = d.data[:, 9, :]
+MAT1[1] = d.data[:, 10, :]
+MAT1[2], MAT1[3] = get_MP(d, 2)
+MAT1[4], MAT1[5] = get_MP(d, 4)
+MAT1[6] = d.data[:, 11, :]
+MAT1[7] = d.data[:, 12, :]
+MAT1[8] = d.data[:, 13, :]
+'''
 
-
-MAT1 = np.zeros([10, d.shape[0], d.shape[1]])
+MAT1 = np.zeros([11, d.shape[0], d.shape[1]])
 MAT1[0] = d.data[:, 10, :]
 MAT1[1] = d.data[:, 11, :]
 MAT1[2], MAT1[3] = get_MP(d, 2)
 MAT1[4], MAT1[5] = get_MP(d, 4)
-MAT1[5], MAT1[6] = get_MP(d, 6)
-MAT1[7], MAT1[8] = get_MP(d, 8)
-MAT1[9] = d.data[:, 14, :]
+MAT1[6], MAT1[7] = get_MP(d, 6)
+MAT1[8], MAT1[9] = get_MP(d, 8)
+MAT1[10] = d.data[:, 14, :]
 
-'''
 # scale data to photon number
-f1 = 4.924e9
-f2 = 5.217e9
+f1 = 4.1e9
+f2 = 4.5e9
 # B = 1.37e6
 # B = 50e3
-B = 5e6
-G1 = 2.52057e+07
-G2 = 2.16209e+07
+B = 1e5
+G1 = 32840692.6823401  # 32801192.8976825
+G2 = 43260871.286246  # 42989483.3930531
 MAT1[0] = MAT1[0]/(h*f1*B*G1)
 MAT1[1] = MAT1[1]/(h*f2*B*G2)
 
+
+xoff = 140.5e-3  # 139.3e-3
+x1flux = 479.6e-3
+d.n1.lin = (d.n1.lin-xoff)/x1flux + 0.5
+d.n1.start = d.n1.lin[0]
+d.n1.stop = d.n1.lin[-1]
+d.n1.name = 'Flux/Flux0'
+
+'''
 # meas specific to change mag field to flux
 # simply comment this paragraph out
 n = 1
@@ -86,13 +93,9 @@ d.n3 = [dim(name=d.stepInst[n],
             scale=1)
         for sPar in d.stepItems[n]]
 d.n3 = d.n3[0]
+'''
 
-xoff = 140.5e-3  # 139.3e-3
-x1flux = 479.6e-3
-d.n3.lin = (d.n3.lin-xoff)/x1flux + 0.5
-d.n3.start = d.n3.lin[0]
-d.n3.stop = d.n3.lin[-1]
-d.n3.name = 'Flux/Flux0'
+'''
 # (x-140.5e-3)/479.6e-3+ 0.5
 # header1 = make_header(d.n3, d.n2, d.n1, meas_data=('Photons [#]'))
 header1 = make_header(d.n3, d.n2, d.n1, meas_data=('Pow [W]'))
@@ -136,7 +139,7 @@ d.n2[1].name = 'Flux/Flux0'
 '''
 '''
 M2 = np.zeros((MAT1.shape[0], d.n2[0].pt, d.n3.pt))
-M3 = np.zeros((MAT1.shape[0], d.n2[1].pt, d.n3.pt))
+M4 = np.zeros((MAT1.shape[0], d.n2[1].pt, d.n3.pt))
 M2 = MAT1[:, :d.n2[0].pt, :]
 M3 = MAT1[:, d.n2[0].pt-1:, :]
 
@@ -145,5 +148,7 @@ savemtx('mtx_out//' + filein + '.mtx', M2, header=header1)
 header2 = make_header(d.n3, d.n2[1], d.n1, meas_data=('a.u.'))
 savemtx('mtx_out//' + filein + '2' + '.mtx', M3, header=header2)
 '''
-header1 = make_header(d.n1, d.n2, d.n3, meas_data=('Pow [W]'))
+
+header1 = make_header(d.n1, d.n2, d.n3, meas_data=('Photon Flux'))
+# header1 = make_header(d.n1, d.n2, d.n3, meas_data=('Pow [W]'))
 savemtx('mtx_out//' + filein + '.mtx', MAT1, header=header1)
