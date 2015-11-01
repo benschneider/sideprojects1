@@ -29,7 +29,6 @@ filein = 'S1_649_DCE_4p1_4p5_BPF7'
 
 d = load_hdf5(folder+filein+'.hdf5')
 
-
 def get_MP(d, chnum):
     '''
     This function is used to obtain the magnitude and phase from
@@ -69,11 +68,18 @@ f2 = 4.5e9
 # B = 1.37e6
 # B = 50e3
 B = 1e5
-G1 = 32840692.6823401  # 32801192.8976825
-G2 = 43260871.286246  # 42989483.3930531
+# G1 = 31625696.8579638  # 1
+# G1 = 32840692.6823401  # 2
+# G2 = 41535551.28857  # 1
+# G2 = 43260871.286246  # 2
+G1 = 32110727.8374078
+G2 = 42536562.1528004
+
+# G1 = 32e6
+# G2 = 32e6
+
 MAT1[0] = MAT1[0]/(h*f1*B*G1)
 MAT1[1] = MAT1[1]/(h*f2*B*G2)
-
 
 xoff = 140.5e-3  # 139.3e-3
 x1flux = 479.6e-3
