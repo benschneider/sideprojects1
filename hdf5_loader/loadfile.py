@@ -5,7 +5,7 @@ from parsers import savemtx, make_header
 # import matplotlib.pyplot as plt
 # from changeaxis import interp_y
 from scipy.constants import Boltzmann as Kb
-from scipy.constants import h, e, pi
+from scipy.constants import h  # , e , pi
 
 # filein = "S1_511_shot_100mV_4924_5217MHz"
 # filein = "S1_514_S11_4924_5217MHz"
@@ -24,10 +24,13 @@ from scipy.constants import h, e, pi
 # filein = 'S1_631_SN_G100_BPF4'
 # folder = "hdf5s//10//Data_1030//"
 # filein = 'S1_655_SN_4p1_4p5_BPF7'
-folder = "hdf5s//10//Data_1028//"
-filein = 'S1_649_DCE_4p1_4p5_BPF7'
+# folder = "hdf5s//10//Data_1028//"
+# filein = 'S1_649_DCE_4p1_4p5_BPF7'
 
+folder = 'hdf5s/11/Data_1104//'
+filein = 'S1_804_DCE_4p1_4p5_BPF7'
 d = load_hdf5(folder+filein+'.hdf5')
+
 
 def get_MP(d, chnum):
     '''
@@ -65,21 +68,18 @@ MAT1[10] = d.data[:, 14, :]
 # scale data to photon number
 f1 = 4.1e9
 f2 = 4.5e9
-# B = 1.37e6
-# B = 50e3
-B = 1e5
-# G1 = 31625696.8579638  # 1
-# G1 = 32840692.6823401  # 2
-# G2 = 41535551.28857  # 1
-# G2 = 43260871.286246  # 2
-G1 = 32110727.8374078
-G2 = 42536562.1528004
+B = 10e6
+G1 = 32910363
+Tn1 = 3.875
+G2 = 44265492
+Tn2 = 3.028
+fac1 = (h*f1*B*G1)
+fac2 = (h*f2*B*G2)
+Namp1 = Tn1*Kb/(h*f1)
+Namp2 = Tn2*Kb/(h*f2)
 
-# G1 = 32e6
-# G2 = 32e6
-
-MAT1[0] = MAT1[0]/(h*f1*B*G1)
-MAT1[1] = MAT1[1]/(h*f2*B*G2)
+MAT1[0] = MAT1[0]/fac1 - Namp1
+MAT1[1] = MAT1[1]/fac2 - Namp2
 
 xoff = 140.5e-3  # 139.3e-3
 x1flux = 479.6e-3
@@ -87,6 +87,19 @@ d.n1.lin = (d.n1.lin-xoff)/x1flux + 0.5
 d.n1.start = d.n1.lin[0]
 d.n1.stop = d.n1.lin[-1]
 d.n1.name = 'Flux/Flux0'
+
+
+# scale voltage axis to uV
+DCGain = 1000.0
+MAT1[10] = MAT1[10]*(1e6/DCGain)
+
+# scale Power axis to units of flux change
+dpow = 0.25-0.025
+dflux = 0.654295-0.5
+powScale = dflux/dpow
+d.n2.start = d.n2.start*powScale
+d.n2.stop = d.n2.stop*powScale
+d.n2.name = 'Pump [Phi/Phi0]'
 
 '''
 # meas specific to change mag field to flux
