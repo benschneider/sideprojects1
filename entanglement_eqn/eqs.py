@@ -35,10 +35,10 @@ M220mV = np.array([[0.3, 0.0, 0.028, 0.012],
 # so far it appears even in the worst case scenario about 0.5
 # additional noise photons would be required to make out entanglement claim
 # invalid. This is quite good! as our error bars are indeed much smaler!
-Ntest = np.array([[0.30, 0.0, 0.0, 0.0],
-                  [0.0, 0.30, 0.0, 0.0],
-                  [0.0, 0.0, 0.30, 0.0],
-                  [0.0, 0.0, 0.0, 0.30]])
+Ntest = np.array([[0.0665, 0.0, 0.0, 0.0],
+                  [0.0, 0.0665, 0.0, 0.0],
+                  [0.0, 0.0, 0.0665, 0.0],
+                  [0.0, 0.0, 0.0, 0.0665]])
 
 
 # function to calculate LogNegativity from the Matrix
@@ -55,4 +55,10 @@ M180mV_n = get_LogNegNum(M180mV)
 M200mV_n = get_LogNegNum(M200mV)
 M220mV_n = get_LogNegNum(M220mV)
 
-test_n = get_LogNegNum(M180mV + Ntest)
+N1 = get_LogNegNum(M180mV + Ntest)
+N2 = get_LogNegNum(M200mV + Ntest)
+N3 = get_LogNegNum(M220mV + Ntest)
+
+Nn1 = get_LogNegNum(M180mV - Ntest)
+Nn2 = get_LogNegNum(M200mV - Ntest)
+Nn3 = get_LogNegNum(M220mV - Ntest)
