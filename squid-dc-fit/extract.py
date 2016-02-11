@@ -11,7 +11,8 @@ from scipy.constants import h, e, pi
 # mtx file to be loaded
 # filename1 = "data/S1_164_voltage_adj.mtx"
 # filename1 = "data/S1_160_voltage_adj2.mtx"
-filename1 = "data/S1_420_voltage_adj.mtx"
+# filename1 = "data/S1_420_voltage_adj.mtx"
+filename1 = "data/S1_905_SI.mtx"
 data, head = loadmtx(filename1)
 d1, d2, d3, dz = read_header_old(head, Data=data)
 flux0 = h/(2.0*e)
@@ -22,9 +23,9 @@ flux0 = h/(2.0*e)
 # d2.off = 0.177*d2.scale
 # d2.lin = d2.lin+d2.off
 
-d2.scale = 1.0/0.85
-d2.update_lin()
-d2.lin = d2.lin-0.207
+# d2.scale = 1.0/0.85
+# d2.update_lin()
+# d2.lin = d2.lin-0.207
 
 
 def xderiv(d2MAT, d1):
@@ -47,12 +48,22 @@ line = np.zeros(d1.pt)
 fjosephson = 340e-6 * 483.6e6/1e-6
 
 
+def find_nearest(someArray, value):
+    '''
+    Returns an index number (idx)
+    at which the someArray.[idx] is closest to value
+    '''
+    idx = abs(someArray - value).argmin()
+    return idx
+
+
 def extractIrIcR(line, d1):
     # zeroIdx assumes that there is no offset in the axis
     zeroIdx = round(d1.start*d1.pt/(d1.start-d1.stop))
+    zeroIdx = 452  # Temp override the autofound value
     l1 = line[:zeroIdx]
     l2 = line[zeroIdx:]
-    IrIdx = np.sort(bn.argpartsort(-l1, 3)[:2])
+    IrIdx = np.sort(bn.argpartsort(-l1, 3)[:3])
     IcIdx = np.sort(bn.argpartsort(-l2, 13)[:13]) + zeroIdx
     # store only peaks closest to zero
     Ir = d1.lin[IrIdx[-1]]*1e-6
@@ -64,13 +75,16 @@ for ii in range(d2.pt):
     line = np.array(d1mat[ii])
     Ir, Ic, R = extractIrIcR(line, d1)
     # R = 50
-    betac = ((4.0*Ic)/(pi*Ir))**2.0
+    # if Ir < 1e-20:
+    #     Ir = 1e-20
+
+    betac = ((4.0*Ic)/(pi*(Ir)))**2.0
     R2C = betac * flux0/(2.0*pi*Ic)
     flux = d2.lin[ii]
     L = flux0 / (Ic*2.0*pi * np.abs(np.cos(pi*flux)) + 1e-9)
-    C = 70e-15
-    # C = (R2C/(R**2))
-    R = np.sqrt(R2C/C)
+    # C = 70e-15
+    C = (R2C/(R**2))
+    # R = np.sqrt(R2C/C)
     plasmaf = 1.0/(2*pi*np.sqrt(L*C))
     resultmat[ii] = [d2.lin[ii], Ir, Ic, R, C, L, plasmaf, betac]
 
@@ -132,6 +146,7 @@ g8("replot 'test2.dat' u 1:(-$2*1e6) w l t 'Ir (uA)'")
 g8("replot 'test2.dat' u 1:($3*1e6) w l t 'Ic (uA)'")
 g8("replot 'test2.dat' u 1:($4/1000) w l t 'R (kOhm)'")
 g8("replot 'test2.dat' u 1:($5*1e15) w l t 'Cap (fF)'")
+# g8("replot 'test2.dat' u 1:($6*1e9) w l t 'L (nH)'")
 
 g8("file = 'data/output.eps'")
 g8("load 'print.gnu'")
