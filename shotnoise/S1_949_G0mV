@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 '''
 @author: benschneider
-A script used to readout mtx measurement data which contains
+A script is used to readout mtx measurement data which also contains
 a shotnoise responses.
 Then fits them for G and Tn
 '''
@@ -96,7 +96,7 @@ def fitfun2(x, G, Tn, c=True):
 
 
 '''
-Loading all the data files I1I1, Q1Q1, I2I2, Q2Q2, Vm
+Loading the data files I1I1, Q1Q1, I2I2, Q2Q2, Vm
 d1, d2, d3 are all the same since they all originate from the same type of
 measurement.
 '''
