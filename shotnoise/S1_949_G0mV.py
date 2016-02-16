@@ -132,7 +132,7 @@ I1I1, d3, d2, d1, dz = loadmtx('sn_data//' + filein1 + '.mtx')
 Q1Q1, d3, d2, d1, dz = loadmtx('sn_data//' + filein2 + '.mtx')
 I2I2, d3, d2, d1, dz = loadmtx('sn_data//' + filein3 + '.mtx')
 Q2Q2, d3, d2, d1, dz = loadmtx('sn_data//' + filein4 + '.mtx')
-Vm,   dv3, dv2, dv1, dvz = loadmtx('sn_data//' + filein5 + '.mtx')
+Vm,   d3, dv2, dv1, dvz = loadmtx('sn_data//' + filein5 + '.mtx')
 
 lags0 = find_nearest(d1.lin, 0.0)  # lags position
 PD1 = (I1I1[lags0]+Q1Q1[lags0])
@@ -146,45 +146,46 @@ f = 4100*1e6
 RTR = 1009.1 * 1e3           # Ib Resistance in Ohm
 RG = 1000.0                   # Pre Amp gain factor
 
-
-pidx = 0                        # power index 0 is 0 power
-mean_diff = np.mean(PD1[pidx])/np.mean(PD2[pidx])  # i.e. 0.779 ~ 28% difference
-# Getting the differential Resistance
-# -----------------------------------------
-
-d3.scale = 1/(RTR)         # scale to Amp
-d3.update_lin()
-IVs = Vm[0, pidx]
-IVs = IVs/RG            # scale to Volts
-
-dx3 = dv3.lin[1] - dv3.lin[0]   # get step-size for the derivative
-dIV = xderiv(IVs, dx3)
-dR = abs(dIV)                  # no filter other than an absolute val for now
-dRm = gaussian_filter1d(dR, 1.5)  # Gaussian filter
-# -----------------------------------------
-I = dv3.lin*1e-6  # in Amps
-
-
 plt.ion()
-crop_within = find_nearest(I, -0.9e-6), find_nearest(I, 1.1e-6)
-crop_outside = find_nearest(I, -19.5e-6), find_nearest(I, 19.5e-6)
-crop = [crop_within, crop_outside]
+plt.close('all')
 
+for pidx in range(PD1.shape[0]):
+    mean_ratio = np.mean(PD1[pidx])/np.mean(PD2[pidx])  # i.e. 0.779~28% diff
+    # Getting the differential Resistance
+    # -----------------------------------------
+    d3.scale = 1/(RTR)          # scale to Amp
+    d3.update_lin()
+    I = d3.lin
 
-data = PD1[pidx]*1.0
-params = Parameters()
-params.add('Tn', value=3.7, vary=True, min=2, max=4)
-params.add('G', value=3.38e7, vary=True, min=1e6, max=1e9)
-params.add('T', value=0.012, vary=False)
+    IVs = Vm[0, pidx]           # Vm[0, -> Dim has size 1 -> want array
+    IVs = IVs/RG                # Volts (offsets are irrelevant for deriv)
+    d3.step = d3.lin[1] - d3.lin[0]   # get step-size for the derivative
+    dIV = xderiv(IVs, d3.step)
+    dR = abs(dIV)                  # rid negative resistance
+    dRm = gaussian_filter1d(dR, 1.5)  # Gaussian filter
+    # -----------------------------------------
 
+    crop_within = find_nearest(I, -1.0e-6), find_nearest(I, 1.0e-6)
+    crop_outside = find_nearest(I, -19.5e-6), find_nearest(I, 19.5e-6)
+    crop = [crop_within, crop_outside]
 
+    data = PD2[pidx]*1.0
+    params = Parameters()
+    params.add('Tn', value=3.7, vary=True, min=2, max=4)
+    params.add('G', value=3.38e7, vary=True, min=1e6, max=1e9)
+    params.add('T', value=0.012, vary=False)
 
+    result = minimize(ministuff, params, args=(I, dRm, data*1.0, crop))
+    # print report_fit(result)
+    print result.params['G']
+    print result.params['Tn']
+    deltaTn = result.params['Tn'].stderr
+    deltaG = result.params['G'].stderr
+    SNfit = fitfun2(result.params, I, dRm)
 
-result = minimize(ministuff, params, args=(I, dRm, data*1.0, crop))
-print report_fit(result)
-deltaTn = result.params['Tn'].stderr
-deltaG = result.params['G'].stderr
-SNfit = fitfun2(result.params, I, dRm)
-
-
-
+    plt.figure()
+    plt.plot(I, data*1e9)
+    plt.hold(True)
+    plt.plot(I, SNfit*1e9)
+    plt.hold(False)
+    plt.show()
