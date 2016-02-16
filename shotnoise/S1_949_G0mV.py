@@ -242,12 +242,20 @@ SNr.G2del = np.array(SNr.G2del)
 SNr.Tn1del = np.array(SNr.Tn1del)
 SNr.Tn2del = np.array(SNr.Tn2del)
 
-# Get photon numbers at hemt input
-SNr.Pin1 = (Kb*SNr.Tn1)/(h*f1) + 0.5
-SNr.Pin1del = (Kb*SNr.Tn1del)/(h*f1)
+# Photon numbers hemt input
+SNr.Pi1 = (Kb*SNr.Tn1)/(h*f1) + 0.5
+SNr.Pi1del = (Kb*SNr.Tn1del)/(h*f1)
+SNr.Pi2 = (Kb*SNr.Tn2)/(h*f2) + 0.5
+SNr.Pi2del = (Kb*SNr.Tn2del)/(h*f2)
 
-SNr.Pin2 = (Kb*SNr.Tn2)/(h*f2) + 0.5
-SNr.Pin2del = (Kb*SNr.Tn2del)/(h*f2)
+# Noise power at output at I = 0
+SNr.Pn1 = SNr.G1 * B * SNr.Pi1 * (h * f1)
+SNr.Pn1del = SNr.Pn1 * np.sqrt((SNr.G1del/SNr.G1)**2 + (SNr.Tn1del/SNr.Tn1)**2)
+SNr.Pn2 = SNr.G2 * B * SNr.Pi2 * (h * f2)
+SNr.Pn2del = SNr.Pn2 * np.sqrt((SNr.G2del/SNr.G2)**2 + (SNr.Tn2del/SNr.Tn2)**2)
 
-print SNr.Pin1, SNr.Pin1del
-print SNr.Pin2, SNr.Pin2del
+i = 0
+print 'Photons in1', SNr.Pi1.mean(), '+/-', SNr.Pi1del.mean()
+print 'Photons in2', SNr.Pi2.mean(), '+/-', SNr.Pi2del.mean()
+print 'Pn1', SNr.Pn1.mean(), '+/-', SNr.Pn1del.mean()
+print 'Pn2', SNr.Pn2.mean(), '+/-', SNr.Pn2del.mean()
