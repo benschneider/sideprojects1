@@ -16,6 +16,9 @@ from scipy.ndimage.filters import gaussian_filter1d
 import matplotlib.pyplot as plt
 from lmfit import minimize, Parameters, report_fit  # , Parameter
 
+plt.ion()
+plt.close('all')
+
 
 def xderiv(d2MAT, dx=1.0, axis=0):
     '''
@@ -117,6 +120,23 @@ def ministuff(params, I, dRm, measd, crop):
     measd[crop[1][1]:-1] = 0
     return (measd-SNfit)*1e10
 
+
+class SN_class():
+    '''
+    This is simply an empty class which i am going to use
+    to store the shot-noise fitting results
+    '''
+    def __init__(self):
+        ''' Using empty lists at which i can append incoming data'''
+        self.delG1 = []
+        self.delG2 = []
+        self.delTn1 = []
+        self.delTn2 = []
+        self.G1 = []
+        self.G2 = []
+        self.Tn1 = []
+        self.Tn2 = []
+
 '''
 Loading the data files I1I1, Q1Q1, I2I2, Q2Q2, Vm
 d1, d2, d3 are all the same since they all originate from the same type of
@@ -132,7 +152,7 @@ I1I1, d3, d2, d1, dz = loadmtx('sn_data//' + filein1 + '.mtx')
 Q1Q1, d3, d2, d1, dz = loadmtx('sn_data//' + filein2 + '.mtx')
 I2I2, d3, d2, d1, dz = loadmtx('sn_data//' + filein3 + '.mtx')
 Q2Q2, d3, d2, d1, dz = loadmtx('sn_data//' + filein4 + '.mtx')
-Vm,   d3, dv2, dv1, dvz = loadmtx('sn_data//' + filein5 + '.mtx')
+Vm, d3, dv2, dv1, dvz = loadmtx('sn_data//' + filein5 + '.mtx')
 
 lags0 = find_nearest(d1.lin, 0.0)  # lags position
 PD1 = (I1I1[lags0]+Q1Q1[lags0])
@@ -144,48 +164,67 @@ Zopt = 50.0
 B = 1e5
 f = 4100*1e6
 RTR = 1009.1 * 1e3           # Ib Resistance in Ohm
-RG = 1000.0                   # Pre Amp gain factor
+RG = 1000.0                  # Pre Amp gain factor
+d3.scale = 1/(RTR)           # scale to Amp
+d3.update_lin()
+I = d3.lin
 
-plt.ion()
-plt.close('all')
+SN_r = SN_class()
 
+# create crop vector for the fitting
+crop_within = find_nearest(I, -1.1e-6), find_nearest(I, 1.1e-6)
+crop_outside = find_nearest(I, -19.5e-6), find_nearest(I, 19.5e-6)
+crop = [crop_within, crop_outside]
+
+# create fitting parameters
+params = Parameters()
+params.add('Tn', value=3.7, vary=True, min=2, max=4)
+params.add('G', value=3.38e7, vary=True, min=1e6, max=1e9)
+params.add('T', value=0.012, vary=False)
+
+data1 = PD1*1.0
+data2 = PD2*1.0
 for pidx in range(PD1.shape[0]):
-    mean_ratio = np.mean(PD1[pidx])/np.mean(PD2[pidx])  # i.e. 0.779~28% diff
-    # Getting the differential Resistance
-    # -----------------------------------------
-    d3.scale = 1/(RTR)          # scale to Amp
-    d3.update_lin()
-    I = d3.lin
+    '''
+    scales Voltage_trace[selected power] to Volts
+    obtains differential Resistance Rm
+    fits selected data set
+    records corresponding fit results into SN_r class values
+    '''
 
     IVs = Vm[0, pidx]           # Vm[0, -> Dim has size 1 -> want array
     IVs = IVs/RG                # Volts (offsets are irrelevant for deriv)
+
     d3.step = d3.lin[1] - d3.lin[0]   # get step-size for the derivative
     dIV = xderiv(IVs, d3.step)
     dR = abs(dIV)                  # rid negative resistance
     dRm = gaussian_filter1d(dR, 1.5)  # Gaussian filter
-    # -----------------------------------------
 
-    crop_within = find_nearest(I, -1.0e-6), find_nearest(I, 1.0e-6)
-    crop_outside = find_nearest(I, -19.5e-6), find_nearest(I, 19.5e-6)
-    crop = [crop_within, crop_outside]
+    result = minimize(ministuff, params, args=(I, dRm, data1[pidx]*1.0, crop))
+    print report_fit(result)
+    SN_r.delG1.append(result.params['G'].stderr)
+    SN_r.delTn1.append(result.params['Tn'].stderr)
+    SN_r.G1.append(result.params['G'].value)
+    SN_r.Tn1.append(result.params['Tn'].value)
+    SNfit1 = fitfun2(result.params, I, dRm)
 
-    data = PD2[pidx]*1.0
-    params = Parameters()
-    params.add('Tn', value=3.7, vary=True, min=2, max=4)
-    params.add('G', value=3.38e7, vary=True, min=1e6, max=1e9)
-    params.add('T', value=0.012, vary=False)
+    result = minimize(ministuff, params, args=(I, dRm, data2[pidx]*1.0, crop))
+    print report_fit(result)
+    SN_r.delG2.append(result.params['G'].stderr)
+    SN_r.delTn2.append(result.params['Tn'].stderr)
+    SN_r.G2.append(result.params['G'].value)
+    SN_r.Tn2.append(result.params['Tn'].value)
+    SNfit2 = fitfun2(result.params, I, dRm)
 
-    result = minimize(ministuff, params, args=(I, dRm, data*1.0, crop))
-    # print report_fit(result)
-    print result.params['G']
-    print result.params['Tn']
-    deltaTn = result.params['Tn'].stderr
-    deltaG = result.params['G'].stderr
-    SNfit = fitfun2(result.params, I, dRm)
-
-    plt.figure()
-    plt.plot(I, data*1e9)
-    plt.hold(True)
-    plt.plot(I, SNfit*1e9)
-    plt.hold(False)
-    plt.show()
+    # plt.figure()
+    # plt.plot(I, data1[pidx]*1e9)
+    # plt.hold(True)
+    # plt.plot(I, SNfit1*1e9)
+    # plt.hold(False)
+    # plt.show()
+    # plt.figure()
+    # plt.plot(I, data2[pidx]*1e9)
+    # plt.hold(True)
+    # plt.plot(I, SNfit2*1e9)
+    # plt.hold(False)
+    # plt.show()
