@@ -128,10 +128,10 @@ class SN_class():
     '''
     def __init__(self):
         ''' Using empty lists at which i can append incoming data'''
-        self.delG1 = []
-        self.delG2 = []
-        self.delTn1 = []
-        self.delTn2 = []
+        self.G1del = []
+        self.G2del = []
+        self.Tn1del = []
+        self.Tn2del = []
         self.G1 = []
         self.G2 = []
         self.Tn1 = []
@@ -142,7 +142,6 @@ Loading the data files I1I1, Q1Q1, I2I2, Q2Q2, Vm
 d1, d2, d3 are all the same since they all originate from the same type of
 measurement.
 '''
-
 filein1 = 'S1_949_G0mV_SN_PCovMat_cI1I1'
 filein2 = 'S1_949_G0mV_SN_PCovMat_cQ1Q1'
 filein3 = 'S1_949_G0mV_SN_PCovMat_cI2I2'
@@ -162,14 +161,15 @@ PD2 = (I2I2[lags0]+Q2Q2[lags0])
 Z0 = 50.0
 Zopt = 50.0
 B = 1e5
-f = 4100*1e6
+f1 = 4.1e9
+f2 = 4.8e9
 RTR = 1009.1 * 1e3           # Ib Resistance in Ohm
 RG = 1000.0                  # Pre Amp gain factor
 d3.scale = 1/(RTR)           # scale to Amp
 d3.update_lin()
 I = d3.lin
 
-SN_r = SN_class()
+SNr = SN_class()
 
 # create crop vector for the fitting
 crop_within = find_nearest(I, -1.1e-6), find_nearest(I, 1.1e-6)
@@ -200,20 +200,22 @@ for pidx in range(PD1.shape[0]):
     dR = abs(dIV)                  # rid negative resistance
     dRm = gaussian_filter1d(dR, 1.5)  # Gaussian filter
 
+    f = f1
     result = minimize(ministuff, params, args=(I, dRm, data1[pidx]*1.0, crop))
     print report_fit(result)
-    SN_r.delG1.append(result.params['G'].stderr)
-    SN_r.delTn1.append(result.params['Tn'].stderr)
-    SN_r.G1.append(result.params['G'].value)
-    SN_r.Tn1.append(result.params['Tn'].value)
+    SNr.G1del.append(result.params['G'].stderr)
+    SNr.Tn1del.append(result.params['Tn'].stderr)
+    SNr.G1.append(result.params['G'].value)
+    SNr.Tn1.append(result.params['Tn'].value)
     SNfit1 = fitfun2(result.params, I, dRm)
 
+    f = f2
     result = minimize(ministuff, params, args=(I, dRm, data2[pidx]*1.0, crop))
     print report_fit(result)
-    SN_r.delG2.append(result.params['G'].stderr)
-    SN_r.delTn2.append(result.params['Tn'].stderr)
-    SN_r.G2.append(result.params['G'].value)
-    SN_r.Tn2.append(result.params['Tn'].value)
+    SNr.G2del.append(result.params['G'].stderr)
+    SNr.Tn2del.append(result.params['Tn'].stderr)
+    SNr.G2.append(result.params['G'].value)
+    SNr.Tn2.append(result.params['Tn'].value)
     SNfit2 = fitfun2(result.params, I, dRm)
 
     # plt.figure()
@@ -228,3 +230,24 @@ for pidx in range(PD1.shape[0]):
     # plt.plot(I, SNfit2*1e9)
     # plt.hold(False)
     # plt.show()
+
+# change stuff to np arrays
+SNr.G1 = np.array(SNr.G1)
+SNr.G2 = np.array(SNr.G2)
+SNr.Tn1 = np.array(SNr.Tn1)
+SNr.Tn2 = np.array(SNr.Tn2)
+
+SNr.G1del = np.array(SNr.G1del)
+SNr.G2del = np.array(SNr.G2del)
+SNr.Tn1del = np.array(SNr.Tn1del)
+SNr.Tn2del = np.array(SNr.Tn2del)
+
+# Get photon numbers at hemt input
+SNr.Pin1 = (Kb*SNr.Tn1)/(h*f1) + 0.5
+SNr.Pin1del = (Kb*SNr.Tn1del)/(h*f1)
+
+SNr.Pin2 = (Kb*SNr.Tn2)/(h*f2) + 0.5
+SNr.Pin2del = (Kb*SNr.Tn2del)/(h*f2)
+
+print SNr.Pin1, SNr.Pin1del
+print SNr.Pin2, SNr.Pin2del
