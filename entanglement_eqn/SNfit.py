@@ -8,12 +8,12 @@ Then fits them for G and Tn
 
 import numpy as np
 from parsers import savemtx, loadmtx, make_header
-from scipy.optimize import curve_fit  # , leastsq
+# from scipy.optimize import curve_fit  # , leastsq
 from scipy.constants import Boltzmann as Kb
 from scipy.constants import h, e  # , pi
 from scipy.ndimage.filters import gaussian_filter1d
 from lmfit import minimize, Parameters, report_fit  # , Parameter
-from matplotlib.pyplot import plot, hold, figure, show, title, ion
+from matplotlib.pyplot import plot, hold, figure, show, title, ion, close
 
 
 def xderiv(d2MAT, dx=1.0, axis=0):
@@ -178,6 +178,8 @@ class variable_carrier():
         self.filein7 = 'S1_949_G0mV_SN_PCovMat_cI1Q2.mtx'
         self.filein8 = 'S1_949_G0mV_SN_PCovMat_cQ1I2.mtx'
         self.filein9 = 'S1_949_G0mV_SN_PCovMat_cQ1Q2.mtx'
+        self.filein10 = 'S1_949_G0mV_SN_PCovMat_cI1Q1.mtx'
+        self.filein11 = 'S1_949_G0mV_SN_PCovMat_cI2Q2.mtx'
         self.fifolder = 'sn_data//'
 
     def load_and_go(self):
@@ -201,6 +203,8 @@ class variable_carrier():
         self.I2I2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein3)
         self.Q2Q2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein4)
         self.Vm, self.d3, dv2, dv1, dvz = loadmtx(self.fifolder + self.filein5)
+        self.lags0 = find_nearest(d1.lin, 0.0)  # lags position
+        self.Ib0 = find_nearest(d3.lin, 0.0)  # Zero current position
 
     def loadCcor(self):
         '''
@@ -211,17 +215,16 @@ class variable_carrier():
         self.I1Q2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein7)
         self.Q1I2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein8)
         self.Q1Q2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein9)
-        self.I1Q1, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein7)
-        self.I2Q2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein7)
-        lags0 = find_nearest(d1.lin, 0.0)  # lags position
+        self.I1Q1, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein10)
+        self.I2Q2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein11)
         # self.cI1I2 = I1I2[lags0]
         # self.cI1Q2 = I1Q2[lags0]
         # self.cQ1I2 = Q1I2[lags0]
         # self.cQ1Q2 = Q1Q2[lags0]
         # self.cI1Q1 = I1Q1[lags0]
         # self.cI2Q2 = I2Q2[lags0]
-        self.cPD1 = (self.I1I1[lags0]+self.Q1Q1[lags0])
-        self.cPD2 = (self.I2I2[lags0]+self.Q2Q2[lags0])
+        self.cPD1 = (self.I1I1[self.lags0]+self.Q1Q1[self.lags0])
+        self.cPD2 = (self.I2I2[self.lags0]+self.Q2Q2[self.lags0])
 
     def norm_to_SI(self):
         '''
@@ -242,7 +245,7 @@ class variable_carrier():
         self.dIVlp = gaussian_filter1d(abs(self.dIV), self.LP)  # Gausfilter
 
 
-def DoSNfits(vc):
+def DoSNfits(vc, plotFit=False):
     '''
     Loading the data files I1I1, Q1Q1, I2I2, Q2Q2, Vm
     d1, d2, d3 are all the same since they all originate from the same type of
@@ -271,7 +274,7 @@ def DoSNfits(vc):
     Right now this def getSNfits does too many things for a single definition:
         - loads the defined mtx files into the vc class
     '''
-
+    close('all')
     SNr = SN_class()
     vc.load_and_go()
     vc.calc_diff_resistance()
@@ -302,11 +305,11 @@ def DoSNfits(vc):
         SNr.Tn1del.append(result.params['Tn'].stderr)
         SNr.G1.append(result.params['G'].value)
         SNr.Tn1.append(result.params['Tn'].value)
+
         SNfit1 = fitfun2(result.params, vc)
         Pn1 = (result.params['G'].value*vc.B *
                (Kb*(result.params['Tn'].value)+0.5*h*vc.f1))
         Pn1array = np.ones(len(vc.I))*Pn1
-
         figure()
         title1 = ('D1, RF-Drive: ' + str(vc.d2.lin[pidx]))
         plot(vc.I, data1[pidx]*1e9)
@@ -324,11 +327,11 @@ def DoSNfits(vc):
         SNr.Tn2del.append(result.params['Tn'].stderr)
         SNr.G2.append(result.params['G'].value)
         SNr.Tn2.append(result.params['Tn'].value)
+
         SNfit2 = fitfun2(result.params, vc)
         Pn2 = (result.params['G'].value*vc.B *
                (Kb*(result.params['Tn'].value)+0.5*h*vc.f2))
         Pn2array = np.ones(len(vc.I))*Pn2
-
         figure()
         title2 = ('D2, RF-Drive: ' + str(vc.d2.lin[pidx]))
         plot(vc.I, data2[pidx]*1e9)

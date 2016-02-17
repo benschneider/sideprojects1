@@ -275,6 +275,9 @@ def loadmtx(filename, getDim=True, getHeader=False):
 
 def savemtx(filename, data, header='Units,ufo,d1,0,1,d2,0,1,d3,0,1'):
     '''MTX - file parser by Ben Schneider
+
+    use as: savemtx(filename, data, header='Units,ufo,d1,0,1,d2,0,1,d3,0,1')
+
     stores to the file:
     Units, Dataset name, xname, xmin, xmax,
             yname, ymin, ymax,
@@ -283,11 +286,8 @@ def savemtx(filename, data, header='Units,ufo,d1,0,1,d2,0,1,d3,0,1'):
     [binary data....]
 
     the first line is the header i.e. with
-    myheader = ('Units, S11,
-                Magnet (T), -1, 1,
-                Volt (V), -10, 10,
-                Freqeuency (Hz), 1, 10')
-    savemtx('myfile.mtx',my-3d-np-array, header = myheader)
+    myheader = ('Units,S11,Magnet(T),-1,1,Volt(V),-10,10,Freqeuency(Hz),1,10')
+    savemtx('myfile.mtx',3Darray, header = myheader)
     '''
     with open(filename, 'wb') as f:
         f.write(header + '\n')
@@ -317,12 +317,19 @@ def make_header(dim_1, dim_2, dim_3, meas_data='(a.u)'):
     dim_3.name = RF Power (dB)
     returns a text string used as 1st line of an mtx file
     '''
+    # header = ('Units,' + meas_data + ',' +
+    #           dim_1.name + ',' + str(dim_1.start) + ',' + str(dim_1.stop) +
+    #           ',' +
+    #           dim_2.name + ',' + str(dim_2.start) + ',' + str(dim_2.stop) +
+    #           ',' +
+    #           dim_3.name + ',' + str(dim_3.start) + ',' + str(dim_3.stop))
+
     header = ('Units,' + meas_data + ',' +
-              dim_1.name + ',' + str(dim_1.start) + ',' + str(dim_1.stop)
-              + ',' +
-              dim_2.name + ',' + str(dim_2.start) + ',' + str(dim_2.stop)
-              + ',' +
-              dim_3.name + ',' + str(dim_3.start) + ',' + str(dim_3.stop))
+              dim_1.name + ',' + str(dim_1.lin[0]) + ',' + str(dim_1.lin[-1]) +
+              ',' +
+              dim_2.name + ',' + str(dim_2.lin[0]) + ',' + str(dim_2.lin[1]) +
+              ',' +
+              dim_3.name + ',' + str(dim_3.lin[0]) + ',' + str(dim_3.lin[1]))
     return header
 
 
