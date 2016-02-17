@@ -166,6 +166,12 @@ class my_variables_class():
         self.filein3 = 'S1_949_G0mV_SN_PCovMat_cI2I2.mtx'
         self.filein4 = 'S1_949_G0mV_SN_PCovMat_cQ2Q2.mtx'
         self.filein5 = 'S1_949_G0mV_SN_PV.mtx'
+
+        # cross correlation files
+        self.filein6 = 'S1_949_G0mV_SN_PCovMat_cI1I2.mtx'
+        self.filein7 = 'S1_949_G0mV_SN_PCovMat_cI1Q2.mtx'
+        self.filein8 = 'S1_949_G0mV_SN_PCovMat_cQ1I2.mtx'
+        self.filein9 = 'S1_949_G0mV_SN_PCovMat_cQ1Q2.mtx'
         self.fifolder = 'sn_data//'
 
     def load_and_go(self):
@@ -174,6 +180,7 @@ class my_variables_class():
         loads data, normalizes to SI units, calculates differential resistances
         '''
         self.loaddata()
+        self.loadCcor()
         self.norm_to_SI()
         self.calc_diff_resistance()
 
@@ -187,6 +194,27 @@ class my_variables_class():
         self.I2I2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein3)
         self.Q2Q2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein4)
         self.Vm, self.d3, dv2, dv1, dvz = loadmtx(self.fifolder + self.filein5)
+
+    def loadCcor(self):
+        '''
+        want to simply load the amplitude at max correlation position
+        i.e. at lags = 0
+        '''
+        I1I2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein6)
+        I1Q2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein7)
+        Q1I2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein8)
+        Q1Q2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein9)
+        I1Q1, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein7)
+        I2Q2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein7)
+        lags0 = find_nearest(d1.lin, 0.0)  # lags position
+        self.cI1I2 = I1I2[lags0]
+        self.cI1Q2 = I1Q2[lags0]
+        self.cQ1I2 = Q1I2[lags0]
+        self.cQ1Q2 = Q1Q2[lags0]
+        self.cI1Q1 = I1Q1[lags0]
+        self.cI2Q2 = I2Q2[lags0]
+        self.cPD1 = (self.I1I1[lags0]+self.Q1Q1[lags0])
+        self.cPD2 = (self.I2I2[lags0]+self.Q2Q2[lags0])
 
     def norm_to_SI(self):
         '''
@@ -216,7 +244,6 @@ def getSNfits(vc):
     Those are made by creating a variables_class;
     example:
     vc = my_variables_class()
-
     which contains the following default settings
     vc.Z0 = 50.0
     vc.Zopt = 50.0
@@ -234,32 +261,25 @@ def getSNfits(vc):
     vc.filein5 = 'S1_949_G0mV_SN_PV.mtx'
     and of course the folder where to find these files
     vc.fifolder = 'sn_data//'
-
     Right now this def getSNfits does too many things for a single definition:
         - loads the defined mtx files into the vc class
-        -
     '''
+
     SNr = SN_class()
     vc.load_and_go()
-
-    lags0 = find_nearest(vc.d1.lin, 0.0)  # lags position
-    PD1 = (vc.I1I1[lags0]+vc.Q1Q1[lags0])
-    PD2 = (vc.I2I2[lags0]+vc.Q2Q2[lags0])
-
+    plt.ion()
     # create crop vector for the fitting
     crop_within = find_nearest(vc.I, -1.55e-6), find_nearest(vc.I, 1.55e-6)
     crop_outside = find_nearest(vc.I, -19e-6), find_nearest(vc.I, 19e-6)
     vc.crop = [crop_within, crop_outside]
-
     # create fitting parameters
     params = Parameters()
     params.add('Tn', value=3.7, vary=True)  # , min=2.2, max=5)
     params.add('G', value=3.38e7, vary=True)  # , min=1e6, max=1e9)
     params.add('T', value=0.012, vary=False, min=0.01, max=0.5)
-
-    data1 = PD1*1.0
-    data2 = PD2*1.0
-    for pidx in range(PD1.shape[0]):
+    data1 = vc.cPD1*1.0
+    data2 = vc.cPD2*1.0
+    for pidx in range(len(data1)):
         '''
         scales Voltage_trace[selected power] to Volts
         obtains differential Resistance Rm
@@ -267,7 +287,6 @@ def getSNfits(vc):
         records corresponding fit results into SN_r class values
         '''
         vc.dRm = vc.dIVlp[pidx]    # select dRm which is wanted
-
         vc.f = vc.f1
         result = minimize(ministuff, params, args=(vc, data1[pidx]*1.0))
         print report_fit(result)
@@ -276,25 +295,10 @@ def getSNfits(vc):
         SNr.G1.append(result.params['G'].value)
         SNr.Tn1.append(result.params['Tn'].value)
         SNfit1 = fitfun2(result.params, vc)
-
         Pn1 = (result.params['G'].value*vc.B *
                (Kb*(result.params['Tn'].value+result.params['T'])+0.5*h*vc.f1))
         Pn1array = np.ones(len(vc.I))*Pn1
 
-        vc.f = vc.f2
-        result = minimize(ministuff, params, args=(vc, data2[pidx]*1.0))
-        print report_fit(result)
-        SNr.G2del.append(result.params['G'].stderr)
-        SNr.Tn2del.append(result.params['Tn'].stderr)
-        SNr.G2.append(result.params['G'].value)
-        SNr.Tn2.append(result.params['Tn'].value)
-        SNfit2 = fitfun2(result.params, vc)
-
-        Pn2 = (result.params['G'].value*vc.B *
-               (Kb*(result.params['Tn'].value+result.params['T'])+0.5*h*vc.f2))
-        Pn2array = np.ones(len(vc.I))*Pn2
-
-        vc.f = vc.f1
         plt.figure()
         title = ('D1, RF-Drive: ' + str(vc.d2.lin[pidx]))
         plt.plot(vc.I, data1[pidx]*1e9)
@@ -306,6 +310,17 @@ def getSNfits(vc):
         plt.show()
 
         vc.f = vc.f2
+        result = minimize(ministuff, params, args=(vc, data2[pidx]*1.0))
+        print report_fit(result)
+        SNr.G2del.append(result.params['G'].stderr)
+        SNr.Tn2del.append(result.params['Tn'].stderr)
+        SNr.G2.append(result.params['G'].value)
+        SNr.Tn2.append(result.params['Tn'].value)
+        SNfit2 = fitfun2(result.params, vc)
+        Pn2 = (result.params['G'].value*vc.B *
+               (Kb*(result.params['Tn'].value+result.params['T'])+0.5*h*vc.f2))
+        Pn2array = np.ones(len(vc.I))*Pn2
+
         plt.figure()
         title = ('D2, RF-Drive: ' + str(vc.d2.lin[pidx]))
         plt.plot(vc.I, data2[pidx]*1e9)
@@ -321,7 +336,6 @@ def getSNfits(vc):
     SNr.G2 = np.array(SNr.G2)
     SNr.Tn1 = np.array(SNr.Tn1)
     SNr.Tn2 = np.array(SNr.Tn2)
-
     SNr.G1del = np.array(SNr.G1del)
     SNr.G2del = np.array(SNr.G2del)
     SNr.Tn1del = np.array(SNr.Tn1del)
