@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 '''
-@author: benschneider
+@author: Ben Schneider
 A script is used to readout mtx measurement data which also contains
 a shotnoise responses.
 Then fits them for G and Tn
@@ -27,7 +27,7 @@ def xderiv(d2MAT, dx=1.0, axis=0):
     This does not require you to shift the xaxis by one half pt.
     dx = distance between points
     '''
-    if len(IVs.shape) > 1:
+    if len(d2MAT.shape) > 1:
         if axis == 1:
             ''' Not tested yet could be faster than a matrix transpose'''
             a2 = np.zeros([d2MAT.shape[0]+2, d2MAT.shape[1]])
@@ -172,15 +172,15 @@ I = d3.lin
 SNr = SN_class()
 
 # create crop vector for the fitting
-crop_within = find_nearest(I, -1.1e-6), find_nearest(I, 1.1e-6)
-crop_outside = find_nearest(I, -19.5e-6), find_nearest(I, 19.5e-6)
+crop_within = find_nearest(I, -1.55e-6), find_nearest(I, 1.55e-6)
+crop_outside = find_nearest(I, -19e-6), find_nearest(I, 19e-6)
 crop = [crop_within, crop_outside]
 
 # create fitting parameters
 params = Parameters()
-params.add('Tn', value=3.7, vary=True, min=2, max=4)
-params.add('G', value=3.38e7, vary=True, min=1e6, max=1e9)
-params.add('T', value=0.012, vary=False)
+params.add('Tn', value=3.7, vary=True)  # , min=2.2, max=5)
+params.add('G', value=3.38e7, vary=True)  # , min=1e6, max=1e9)
+params.add('T', value=0.012, vary=False, min=0.01, max=0.5)
 
 data1 = PD1*1.0
 data2 = PD2*1.0
@@ -198,7 +198,7 @@ for pidx in range(PD1.shape[0]):
     d3.step = d3.lin[1] - d3.lin[0]   # get step-size for the derivative
     dIV = xderiv(IVs, d3.step)
     dR = abs(dIV)                  # rid negative resistance
-    dRm = gaussian_filter1d(dR, 1.5)  # Gaussian filter
+    dRm = gaussian_filter1d(dR, 2)  # Gaussian filter
 
     f = f1
     result = minimize(ministuff, params, args=(I, dRm, data1[pidx]*1.0, crop))
@@ -209,6 +209,11 @@ for pidx in range(PD1.shape[0]):
     SNr.Tn1.append(result.params['Tn'].value)
     SNfit1 = fitfun2(result.params, I, dRm)
 
+    Pn1 = (result.params['G'].value *
+           B*(Kb*(result.params['Tn'].value+result.params['T']) +
+              0.5*h*f1))
+    Pn1array = np.ones(len(I))*Pn1
+
     f = f2
     result = minimize(ministuff, params, args=(I, dRm, data2[pidx]*1.0, crop))
     print report_fit(result)
@@ -218,18 +223,25 @@ for pidx in range(PD1.shape[0]):
     SNr.Tn2.append(result.params['Tn'].value)
     SNfit2 = fitfun2(result.params, I, dRm)
 
-    # plt.figure()
-    # plt.plot(I, data1[pidx]*1e9)
-    # plt.hold(True)
-    # plt.plot(I, SNfit1*1e9)
-    # plt.hold(False)
-    # plt.show()
-    # plt.figure()
-    # plt.plot(I, data2[pidx]*1e9)
-    # plt.hold(True)
-    # plt.plot(I, SNfit2*1e9)
-    # plt.hold(False)
-    # plt.show()
+    Pn2 = (result.params['G'].value *
+           B*(Kb*(result.params['Tn'].value+result.params['T']) +
+              0.5*h*f2))
+    Pn2array = np.ones(len(I))*Pn2
+
+    plt.figure()
+    plt.plot(I, data1[pidx]*1e9)
+    plt.hold(True)
+    plt.plot(I, SNfit1*1e9)
+    plt.plot(I, Pn1array*1e9)
+    plt.hold(False)
+    plt.show()
+    plt.figure()
+    plt.plot(I, data2[pidx]*1e9)
+    plt.hold(True)
+    plt.plot(I, SNfit2*1e9)
+    plt.plot(I, Pn2array*1e9)
+    plt.hold(False)
+    plt.show()
 
 # change stuff to np arrays
 SNr.G1 = np.array(SNr.G1)
@@ -254,7 +266,6 @@ SNr.Pn1del = SNr.Pn1 * np.sqrt((SNr.G1del/SNr.G1)**2 + (SNr.Tn1del/SNr.Tn1)**2)
 SNr.Pn2 = SNr.G2 * B * SNr.Pi2 * (h * f2)
 SNr.Pn2del = SNr.Pn2 * np.sqrt((SNr.G2del/SNr.G2)**2 + (SNr.Tn2del/SNr.Tn2)**2)
 
-i = 0
 print 'Photons in1', SNr.Pi1.mean(), '+/-', SNr.Pi1del.mean()
 print 'Photons in2', SNr.Pi2.mean(), '+/-', SNr.Pi2del.mean()
 print 'Pn1', SNr.Pn1.mean(), '+/-', SNr.Pn1del.mean()
