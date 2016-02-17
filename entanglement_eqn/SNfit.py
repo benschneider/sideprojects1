@@ -9,12 +9,11 @@ Then fits them for G and Tn
 import numpy as np
 from parsers import savemtx, loadmtx, make_header
 from scipy.optimize import curve_fit  # , leastsq
-# import scipy.optimize
 from scipy.constants import Boltzmann as Kb
 from scipy.constants import h, e  # , pi
 from scipy.ndimage.filters import gaussian_filter1d
-import matplotlib.pyplot as plt
 from lmfit import minimize, Parameters, report_fit  # , Parameter
+from matplotlib.pyplot import plot, hold, figure, show, title, ion
 
 
 def xderiv(d2MAT, dx=1.0, axis=0):
@@ -134,7 +133,7 @@ class SN_class():
         self.Tn2 = []
 
 
-class my_variables_class():
+class variable_carrier():
     ''' used to store and pass lots of variables and locations
         simply create with vc = my_variable_class()
         it currently has the following default settings in __init__:
@@ -191,7 +190,6 @@ class my_variables_class():
         self.loaddata()
         self.loadCcor()
         self.norm_to_SI()
-        self.calc_diff_resistance()
 
     def loaddata(self):
         '''
@@ -209,19 +207,19 @@ class my_variables_class():
         want to simply load the amplitude at max correlation position
         i.e. at lags = 0
         '''
-        I1I2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein6)
-        I1Q2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein7)
-        Q1I2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein8)
-        Q1Q2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein9)
-        I1Q1, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein7)
-        I2Q2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein7)
+        self.I1I2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein6)
+        self.I1Q2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein7)
+        self.Q1I2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein8)
+        self.Q1Q2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein9)
+        self.I1Q1, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein7)
+        self.I2Q2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein7)
         lags0 = find_nearest(d1.lin, 0.0)  # lags position
-        self.cI1I2 = I1I2[lags0]
-        self.cI1Q2 = I1Q2[lags0]
-        self.cQ1I2 = Q1I2[lags0]
-        self.cQ1Q2 = Q1Q2[lags0]
-        self.cI1Q1 = I1Q1[lags0]
-        self.cI2Q2 = I2Q2[lags0]
+        # self.cI1I2 = I1I2[lags0]
+        # self.cI1Q2 = I1Q2[lags0]
+        # self.cQ1I2 = Q1I2[lags0]
+        # self.cQ1Q2 = Q1Q2[lags0]
+        # self.cI1Q1 = I1Q1[lags0]
+        # self.cI2Q2 = I2Q2[lags0]
         self.cPD1 = (self.I1I1[lags0]+self.Q1Q1[lags0])
         self.cPD2 = (self.I2I2[lags0]+self.Q2Q2[lags0])
 
@@ -276,7 +274,8 @@ def DoSNfits(vc):
 
     SNr = SN_class()
     vc.load_and_go()
-    plt.ion()
+    vc.calc_diff_resistance()
+    ion()
     # create crop vector for the fitting
     crop_within = find_nearest(vc.I, -1.55e-6), find_nearest(vc.I, 1.55e-6)
     crop_outside = find_nearest(vc.I, -19e-6), find_nearest(vc.I, 19e-6)
@@ -305,18 +304,18 @@ def DoSNfits(vc):
         SNr.Tn1.append(result.params['Tn'].value)
         SNfit1 = fitfun2(result.params, vc)
         Pn1 = (result.params['G'].value*vc.B *
-               (Kb*(result.params['Tn'].value+result.params['T'])+0.5*h*vc.f1))
+               (Kb*(result.params['Tn'].value)+0.5*h*vc.f1))
         Pn1array = np.ones(len(vc.I))*Pn1
 
-        plt.figure()
-        title = ('D1, RF-Drive: ' + str(vc.d2.lin[pidx]))
-        plt.plot(vc.I, data1[pidx]*1e9)
-        plt.hold(True)
-        plt.plot(vc.I, SNfit1*1e9)
-        plt.plot(vc.I, Pn1array*1e9)
-        plt.title(title)
-        plt.hold(False)
-        plt.show()
+        figure()
+        title1 = ('D1, RF-Drive: ' + str(vc.d2.lin[pidx]))
+        plot(vc.I, data1[pidx]*1e9)
+        hold(True)
+        plot(vc.I, SNfit1*1e9)
+        plot(vc.I, Pn1array*1e9)
+        title(title1)
+        hold(False)
+        show()
 
         vc.f = vc.f2
         result = minimize(ministuff, params, args=(vc, data2[pidx]*1.0))
@@ -327,18 +326,18 @@ def DoSNfits(vc):
         SNr.Tn2.append(result.params['Tn'].value)
         SNfit2 = fitfun2(result.params, vc)
         Pn2 = (result.params['G'].value*vc.B *
-               (Kb*(result.params['Tn'].value+result.params['T'])+0.5*h*vc.f2))
+               (Kb*(result.params['Tn'].value)+0.5*h*vc.f2))
         Pn2array = np.ones(len(vc.I))*Pn2
 
-        plt.figure()
-        title = ('D2, RF-Drive: ' + str(vc.d2.lin[pidx]))
-        plt.plot(vc.I, data2[pidx]*1e9)
-        plt.hold(True)
-        plt.plot(vc.I, SNfit2*1e9)
-        plt.plot(vc.I, Pn2array*1e9)
-        plt.title(title)
-        plt.hold(False)
-        plt.show()
+        figure()
+        title2 = ('D2, RF-Drive: ' + str(vc.d2.lin[pidx]))
+        plot(vc.I, data2[pidx]*1e9)
+        hold(True)
+        plot(vc.I, SNfit2*1e9)
+        plot(vc.I, Pn2array*1e9)
+        title(title2)
+        hold(False)
+        show()
 
     # lists to array
     SNr.G1 = np.array(SNr.G1)
