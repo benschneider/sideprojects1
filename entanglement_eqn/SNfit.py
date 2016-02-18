@@ -167,6 +167,7 @@ class variable_carrier():
         self.f2 = 4.8e9
         self.RTR = 1009.1 * 1e3           # Ib Resistance in Ohm
         self.RG = 1000.0                  # Pre Amp gain factor
+        self.cvals = {}         # Cross corr dictionary with key value elements
         self.filein1 = 'S1_949_G0mV_SN_PCovMat_cI1I1.mtx'
         self.filein2 = 'S1_949_G0mV_SN_PCovMat_cQ1Q1.mtx'
         self.filein3 = 'S1_949_G0mV_SN_PCovMat_cI2I2.mtx'
@@ -217,12 +218,6 @@ class variable_carrier():
         self.Q1Q2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein9)
         self.I1Q1, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein10)
         self.I2Q2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein11)
-        # self.cI1I2 = I1I2[lags0]
-        # self.cI1Q2 = I1Q2[lags0]
-        # self.cQ1I2 = Q1I2[lags0]
-        # self.cQ1Q2 = Q1Q2[lags0]
-        # self.cI1Q1 = I1Q1[lags0]
-        # self.cI2Q2 = I2Q2[lags0]
         self.cPD1 = (self.I1I1[self.lags0]+self.Q1Q1[self.lags0])
         self.cPD2 = (self.I2I2[self.lags0]+self.Q2Q2[self.lags0])
 
@@ -244,20 +239,89 @@ class variable_carrier():
         self.dIV = xderiv(self.Vm[0], self.d3step)
         self.dIVlp = gaussian_filter1d(abs(self.dIV), self.LP)  # Gausfilter
 
-    def getCrossU(self, x2, x3, cpt = 5):
+    def make_cvals(self, cpt=5):
         '''
         Using this function to obtain the amount of noise present
-        in the background while ignoring the regions where the cross correlations
+        in the background while ignoring the regions where the cross corr...
         are expected (5pt around the zero lags position).
 
         this function calculates the uncertainty values in the given cross corr
-        '''
-        self.uii = calcCrossU(self.I1I2[:, x2, x3], self.lags0, cpt)
-        self.uiq = calcCrossU(self.I1Q2[:, x2, x3], self.lags0, cpt)
-        self.uqi = calcCrossU(self.Q1I2[:, x2, x3], self.lags0, cpt)
-        self.uqq = calcCrossU(self.Q1Q2[:, x2, x3], self.lags0, cpt)
 
-    def calcCrossU(self, z1, lags0, cpt):
+        denotation for dict key values beginning with:
+            r* for raw data directly extracted
+            u* for uncertainty values calculated
+            n* for normalized values (considering uncertainty worst values)
+        what is does:
+        1. create dict keys raw data values at lags0
+        2. create zero arrays in dictionary
+        3. fill those zero arrays with corresponding uncertainty values
+        4. calculate norm values and store them in the dict
+        '''
+        r1i = self.cvals['rI1I1'] = self.I1I1[self.lags0, :, :]
+        r1q = self.cvals['rQ1Q1'] = self.Q1Q1[self.lags0, :, :]
+        r2i = self.cvals['rI2I2'] = self.I2I2[self.lags0, :, :]
+        r2q = self.cvals['rQ2Q2'] = self.Q2Q2[self.lags0, :, :]
+        self.cvals['rI1I2'] = self.I1I2[self.lags0, :, :]
+        self.cvals['rI1Q2'] = self.I1Q2[self.lags0, :, :]
+        self.cvals['rQ1I2'] = self.Q1I2[self.lags0, :, :]
+        self.cvals['rQ1Q2'] = self.Q1Q2[self.lags0, :, :]
+        self.cvals['uI1I1'] = np.zeros([self.d2.pt, self.d3.pt])
+        self.cvals['uQ1Q1'] = np.zeros([self.d2.pt, self.d3.pt])
+        self.cvals['uI2I2'] = np.zeros([self.d2.pt, self.d3.pt])
+        self.cvals['uQ2Q2'] = np.zeros([self.d2.pt, self.d3.pt])
+        self.cvals['uI1I2'] = np.zeros([self.d2.pt, self.d3.pt])
+        self.cvals['uI1Q2'] = np.zeros([self.d2.pt, self.d3.pt])
+        self.cvals['uQ1I2'] = np.zeros([self.d2.pt, self.d3.pt])
+        self.cvals['uQ1Q2'] = np.zeros([self.d2.pt, self.d3.pt])
+        self.cvals['nI1I1'] = np.zeros([self.d2.pt, self.d3.pt])
+        self.cvals['nQ1Q1'] = np.zeros([self.d2.pt, self.d3.pt])
+        self.cvals['nI2I2'] = np.zeros([self.d2.pt, self.d3.pt])
+        self.cvals['nQ2Q2'] = np.zeros([self.d2.pt, self.d3.pt])
+        self.cvals['nI1I2'] = np.zeros([self.d2.pt, self.d3.pt])
+        self.cvals['nI1Q2'] = np.zeros([self.d2.pt, self.d3.pt])
+        self.cvals['nQ1I2'] = np.zeros([self.d2.pt, self.d3.pt])
+        self.cvals['nQ1Q2'] = np.zeros([self.d2.pt, self.d3.pt])
+
+        for x2 in range(self.d2.pt):
+            for x3 in range(self.d3.pt):
+                # fill uncertainty values
+                u1i = self.calU(self.I1I1[:, x2, x3], self.lags0, cpt)
+                u1q = self.calU(self.Q1Q1[:, x2, x3], self.lags0, cpt)
+                u2i = self.calU(self.I2I2[:, x2, x3], self.lags0, cpt)
+                u2q = self.calU(self.Q2Q2[:, x2, x3], self.lags0, cpt)
+                uii = self.calU(self.I1I2[:, x2, x3], self.lags0, cpt)
+                uiq = self.calU(self.I1Q2[:, x2, x3], self.lags0, cpt)
+                uqi = self.calU(self.Q1I2[:, x2, x3], self.lags0, cpt)
+                uqq = self.calU(self.Q1Q2[:, x2, x3], self.lags0, cpt)
+                self.cvals['uI1I1'][x2, x3] = u1i
+                self.cvals['uQ1Q1'][x2, x3] = u1q
+                self.cvals['uI2I2'][x2, x3] = u2i
+                self.cvals['uQ2Q2'][x2, x3] = u2q
+                self.cvals['uI1I2'][x2, x3] = uii
+                self.cvals['uI1Q2'][x2, x3] = uiq
+                self.cvals['uQ1I2'][x2, x3] = uqi
+                self.cvals['uQ1Q2'][x2, x3] = uqq
+                # calculate the normed values and store them in the matrix
+                self.cvals['nI1I1'][x2, x3] = r1i[x2, x3]+u1i
+                self.cvals['nQ1Q1'][x2, x3] = r1q[x2, x3]+u1q
+                self.cvals['nI2I2'][x2, x3] = r2i[x2, x3]+u2i
+                self.cvals['nQ2Q2'][x2, x3] = r2q[x2, x3]+u2q
+                # that error is already added from the shot noise values
+                rii = self.cvals['rI1I2'][x2, x3]
+                riq = self.cvals['rI1Q2'][x2, x3]
+                rqi = self.cvals['rQ1I2'][x2, x3]
+                rqq = self.cvals['rQ1Q2'][x2, x3]
+                self.cvals['nI1I2'][x2, x3] = rii+uii if rii < 0 else rii-uii
+                self.cvals['nI1Q2'][x2, x3] = riq+uiq if riq < 0 else riq-uiq
+                self.cvals['nQ1I2'][x2, x3] = rqi+uqi if rqi < 0 else rqi-uqi
+                self.cvals['nQ1Q2'][x2, x3] = rqq+uqq if rqq < 0 else rqq-uqq
+                # 0 if the uncertainty is larger than the detected value:
+                if rii < uii: self.cvals['nI1I2'][x2, x3] = 0.0
+                if riq < uiq: self.cvals['nI1Q2'][x2, x3] = 0.0
+                if rqi < uqi: self.cvals['nQ1I2'][x2, x3] = 0.0
+                if rqq < uqq: self.cvals['nQ1Q2'][x2, x3] = 0.0
+
+    def calU(self, z1, lags0, cpt):
         '''
         This function removes from an array
         cpt points around the lag0 position
@@ -265,10 +329,9 @@ class variable_carrier():
 
         Get background noise value of the cross correlation data.
         '''
-        z2 = z1[:lags0+cpt]*1.0
-        z3 = z1[lags0-cpt:]*1.0
+        z2 = z1[:lags0-cpt]*1.0
+        z3 = z1[lags0+cpt:]*1.0
         return np.sqrt(np.var(np.concatenate([z2, z3])))
-
 
 
 def DoSNfits(vc, plotFit=False):
@@ -332,19 +395,20 @@ def DoSNfits(vc, plotFit=False):
         SNr.G1.append(result.params['G'].value)
         SNr.Tn1.append(result.params['Tn'].value)
 
-        SNfit1 = fitfun2(result.params, vc)
-        Pn1 = (result.params['G'].value*vc.B *
-               (Kb*(result.params['Tn'].value)+0.5*h*vc.f1))
-        Pn1array = np.ones(len(vc.I))*Pn1
-        figure()
-        title1 = ('D1, RF-Drive: ' + str(vc.d2.lin[pidx]))
-        plot(vc.I, data1[pidx]*1e9)
-        hold(True)
-        plot(vc.I, SNfit1*1e9)
-        plot(vc.I, Pn1array*1e9)
-        title(title1)
-        hold(False)
-        show()
+        if plotFit is True:
+            SNfit1 = fitfun2(result.params, vc)
+            Pn1 = (result.params['G'].value*vc.B *
+                   (Kb*(result.params['Tn'].value)+0.5*h*vc.f1))
+            Pn1array = np.ones(len(vc.I))*Pn1
+            figure()
+            title1 = ('D1, RF-Drive: ' + str(vc.d2.lin[pidx]))
+            plot(vc.I, data1[pidx]*1e9)
+            hold(True)
+            plot(vc.I, SNfit1*1e9)
+            plot(vc.I, Pn1array*1e9)
+            title(title1)
+            hold(False)
+            show()
 
         vc.f = vc.f2
         result = minimize(ministuff, params, args=(vc, data2[pidx]*1.0))
@@ -354,19 +418,20 @@ def DoSNfits(vc, plotFit=False):
         SNr.G2.append(result.params['G'].value)
         SNr.Tn2.append(result.params['Tn'].value)
 
-        SNfit2 = fitfun2(result.params, vc)
-        Pn2 = (result.params['G'].value*vc.B *
-               (Kb*(result.params['Tn'].value)+0.5*h*vc.f2))
-        Pn2array = np.ones(len(vc.I))*Pn2
-        figure()
-        title2 = ('D2, RF-Drive: ' + str(vc.d2.lin[pidx]))
-        plot(vc.I, data2[pidx]*1e9)
-        hold(True)
-        plot(vc.I, SNfit2*1e9)
-        plot(vc.I, Pn2array*1e9)
-        title(title2)
-        hold(False)
-        show()
+        if plotFit is True:
+            SNfit2 = fitfun2(result.params, vc)
+            Pn2 = (result.params['G'].value*vc.B *
+                   (Kb*(result.params['Tn'].value)+0.5*h*vc.f2))
+            Pn2array = np.ones(len(vc.I))*Pn2
+            figure()
+            title2 = ('D2, RF-Drive: ' + str(vc.d2.lin[pidx]))
+            plot(vc.I, data2[pidx]*1e9)
+            hold(True)
+            plot(vc.I, SNfit2*1e9)
+            plot(vc.I, Pn2array*1e9)
+            title(title2)
+            hold(False)
+            show()
 
     # lists to array
     SNr.G1 = np.array(SNr.G1)
