@@ -63,6 +63,9 @@ def createCovMat(vc, snd, power1=0, Ibx=0):
     I1Q1 = vc.I1Q1[vc.lags0, power1, Ibx]
     I2Q2 = vc.I2Q2[vc.lags0, power1, Ibx]
 
+    vc.getCrossU(power1, Ibx, cpt=5)
+
+
     I1Q1 = 0.0
     I2Q2 = 0.0
     # To convert to photon input numbers at the Hemt input
@@ -79,12 +82,25 @@ def createCovMat(vc, snd, power1=0, Ibx=0):
                     [I1I2/g12, Q1I2/g12, I2I2/g2-a2, I2Q2/g2],
                     [I1Q2/g12, Q1Q2/g12, I2Q2/g2, Q2Q2/g2-a2]])
 
-    # if power1 < 0.0001:
-    #     ''' If the drive power is zero the powers are known to be 0.25! '''
-    #     covM = np.array([[0.25, I1Q1/g1, I1I2/g12, I1Q2/g12],
-    #                     [I1Q1/g1, 0.25, Q1I2/g12, Q1Q2/g12],
-    #                     [I1I2/g12, Q1I2/g12, 0.25, I2Q2/g2],
-    #                     [I1Q2/g12, Q1Q2/g12, I2Q2/g2, 0.25]])
+    # Uncertainty in amplifier noise
+    n1 = snd.Pi1del[power1]/2.0
+    n2 = snd.Pi2del[power1]/2.0
+    Uamp = np.array([[n1, 0, 0, 0],
+                     [0, n1, 0, 0],
+                     [0, 0, n2, 0],
+                     [0, 0, 0, n2]])
+
+    # Uncertainty in cross correlation values
+    vc.getCrossU(power1, Ibx, cpt=5)
+
+    Ucross = np.array([[0, 0, vc.uii, vc.uiq],
+                       [0, 0, vc.uqi, vc.uqq],
+                       [vc.uii, vc.uqi, 0, 0],
+                       [vc.uiq, vc.uqq, 0, 0]])
+
+    covM = covM + Uamp  # - Ucross
+
+    # check if cross corr values became negative
 
     return covM
 
@@ -106,6 +122,19 @@ def NMatrix(vc, snd):
 
 
 vc = sn.variable_carrier()
+# savename = '958_G27mV_LogN.mtx'
+# vc.filein1 = 'S1_958_G27mV_SNCovMat_cI1I1.mtx'
+# vc.filein2 = 'S1_958_G27mV_SNCovMat_cQ1Q1.mtx'
+# vc.filein3 = 'S1_958_G27mV_SNCovMat_cI2I2.mtx'
+# vc.filein4 = 'S1_958_G27mV_SNCovMat_cQ2Q2.mtx'
+# vc.filein5 = 'S1_958_G27mV_SNV.mtx'
+# vc.filein6 = 'S1_958_G27mV_SNCovMat_cI1I2.mtx'
+# vc.filein7 = 'S1_958_G27mV_SNCovMat_cI1Q2.mtx'
+# vc.filein8 = 'S1_958_G27mV_SNCovMat_cQ1I2.mtx'
+# vc.filein9 = 'S1_958_G27mV_SNCovMat_cQ1Q2.mtx'
+# vc.filein10= 'S1_958_G27mV_SNCovMat_cI1Q1.mtx'
+# vc.filein11= 'S1_958_G27mV_SNCovMat_cI2Q2.mtx'
+
 savename = '957_G27mV_LogN.mtx'
 vc.filein1 = 'S1_957_G27mV_SNCovMat_cI1I1.mtx'
 vc.filein2 = 'S1_957_G27mV_SNCovMat_cQ1Q1.mtx'
@@ -116,8 +145,10 @@ vc.filein6 = 'S1_957_G27mV_SNCovMat_cI1I2.mtx'
 vc.filein7 = 'S1_957_G27mV_SNCovMat_cI1Q2.mtx'
 vc.filein8 = 'S1_957_G27mV_SNCovMat_cQ1I2.mtx'
 vc.filein9 = 'S1_957_G27mV_SNCovMat_cQ1Q2.mtx'
-vc.filein10= 'S1_957_G27mV_SNCovMat_cI1Q1.mtx'
-vc.filein11= 'S1_957_G27mV_SNCovMat_cI2Q2.mtx'
+vc.filein10 = 'S1_957_G27mV_SNCovMat_cI1Q1.mtx'
+vc.filein11 = 'S1_957_G27mV_SNCovMat_cI2Q2.mtx'
+
+
 # vc.filein11 = vc.filein10
 vc.fifolder = 'sn_data//'
 vc.LP = 2.2

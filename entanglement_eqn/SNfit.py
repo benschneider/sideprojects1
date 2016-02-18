@@ -244,6 +244,32 @@ class variable_carrier():
         self.dIV = xderiv(self.Vm[0], self.d3step)
         self.dIVlp = gaussian_filter1d(abs(self.dIV), self.LP)  # Gausfilter
 
+    def getCrossU(self, x2, x3, cpt = 5):
+        '''
+        Using this function to obtain the amount of noise present
+        in the background while ignoring the regions where the cross correlations
+        are expected (5pt around the zero lags position).
+
+        this function calculates the uncertainty values in the given cross corr
+        '''
+        self.uii = calcCrossU(self.I1I2[:, x2, x3], self.lags0, cpt)
+        self.uiq = calcCrossU(self.I1Q2[:, x2, x3], self.lags0, cpt)
+        self.uqi = calcCrossU(self.Q1I2[:, x2, x3], self.lags0, cpt)
+        self.uqq = calcCrossU(self.Q1Q2[:, x2, x3], self.lags0, cpt)
+
+    def calcCrossU(self, z1, lags0, cpt):
+        '''
+        This function removes from an array
+        cpt points around the lag0 position
+        and returns the square root variance of this new array.
+
+        Get background noise value of the cross correlation data.
+        '''
+        z2 = z1[:lags0+cpt]*1.0
+        z3 = z1[lags0-cpt:]*1.0
+        return np.sqrt(np.var(np.concatenate([z2, z3])))
+
+
 
 def DoSNfits(vc, plotFit=False):
     '''
