@@ -11,4 +11,5 @@ mtx_files
 *.svs
 xsection.dat
 *.dat
+*.img_proc
 notes
