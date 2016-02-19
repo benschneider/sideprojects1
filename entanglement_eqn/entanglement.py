@@ -25,9 +25,37 @@ def get_LogNegNum(CovM):
     A = np.linalg.det(CovM[:2, :2])
     B = np.linalg.det(CovM[2:, 2:])
     C = np.linalg.det(CovM[:2, 2:])
-    s = A + B - 2.0*C
-    vn = np.sqrt(s/2.0 - np.sqrt(s**2.0 - 4.0*V) / 2)
-    return -np.log10(2.0*vn)
+    sigma = A + B - 2.0*C
+    vn = np.sqrt(sigma/2.0 - np.sqrt(sigma*sigma - 4.0*V)/2.0)
+    # if C == 0 : vn = vn*4   # N should be strictly negative for no Corr
+    # return -np.log10(2.0*vn)  # maybe this should be 4*vn
+    if C == 0:
+        return 0.0
+    else:
+        return -np.log10(2.0*vn) if (np.log10(2.0*vn)) < 0.0 else 0.0
+
+
+def get_sqIneq(vc, CovM):
+    '''
+    This calculates the amount of two mode squeezing
+    and then subtracts the amount required for proving that it is entangled
+    Such that a positive number corresponds to a breach in
+    the inequality equation and thus can only be explained by a highly
+    entangled signal.
+    This is a strong indicator for the presence of entanglement
+    '''
+    # Photon numbers numbers at f1 and f2:
+    n1 = CovM[0, 0] + CovM[1, 1]
+    n2 = CovM[2, 2] + CovM[3, 3]
+    # Photons detected to be TMS:
+    sqp1 = CovM[0, 2] - CovM[1, 3] + 1j*(CovM[0, 3] + CovM[1, 2])
+    # the amount of squeezing
+    squeezing = np.abs(sqp1) / ((n1 + n2)/2.0)
+    # inequality equation:
+    ineq = ((2.0*np.sqrt(vc.f1*vc.f2)+(n1+n2)) /
+            (vc.f1*(2.0*n1+1.0) + vc.f2*(2.0*n2+1.0)))
+
+    return squeezing - ineq if (squeezing - ineq) > 0.0 else 0.0
 
 
 def TwoModeSqueeze_inequality(f1, f2, n):
@@ -65,13 +93,13 @@ def createCovMat(vc, snd, power1=0, Ibx=0):
     I2Q2 = 0.0
 
     # To convert to photon numbers at the input of the Hemt
-    g1 = snd.G1[power1]*h*vc.f1*vc.B
-    g2 = snd.G2[power1]*h*vc.f2*vc.B
+    g1 = snd.G1[0]*h*vc.f1*vc.B
+    g2 = snd.G2[0]*h*vc.f2*vc.B
     g12 = np.sqrt(g1*g2)
 
     # Added Noise Photons by the Amp (without zpf)
-    a1 = (snd.Pi1[power1] - 0.5)/2.0
-    a2 = (snd.Pi2[power1] - 0.5)/2.0
+    a1 = (snd.Pi1[0] - 0.5)/2.0
+    a2 = (snd.Pi2[0] - 0.5)/2.0
 
     # Create Covariance matrix (includes uncertainty from data selection)
     covM = np.array([[I1I1/g1-a1, I1Q1/g1, I1I2/g12, I1Q2/g12],
@@ -80,35 +108,62 @@ def createCovMat(vc, snd, power1=0, Ibx=0):
                     [I1Q2/g12, Q1Q2/g12, I2Q2/g2, Q2Q2/g2-a2]])
 
     # Add uncertainty from amplifier noise and the fit
-    n1 = snd.Pi1del[power1]/2.0
-    n2 = snd.Pi2del[power1]/2.0
-    Uamp = np.array([[n1, 0, 0, 0],
-                     [0, n1, 0, 0],
-                     [0, 0, n2, 0],
-                     [0, 0, 0, n2]])
-    covM = covM + Uamp
+    # n1 = snd.Pi1del[power1]/2.0
+    # n2 = snd.Pi2del[power1]/2.0
+    # Uamp = np.array([[n1, 0, 0, 0],
+    #                  [0, n1, 0, 0],
+    #                  [0, 0, n2, 0],
+    #                  [0, 0, 0, n2]])
+    # covM = covM + Uamp
 
     return covM
 
 
-def NMatrix(vc, snd):
+def NMatrix(vc, snd, cpt=5, SnR=0.5):
     '''
     This assembles the Log neg matrix LnM
     '''
-    vc.make_cvals(cpt=3)  # creates the necessary covariance values
+    vc.make_cvals(cpt, SnR)  # creates the necessary covariance values
     LnM = np.zeros([1, vc.d2.pt, vc.d3.pt])
+    LnM2 = np.zeros([1, vc.d2.pt, vc.d3.pt])
     for ii in range(vc.d2.pt):
         for jj in range(vc.d3.pt):
             CovM = createCovMat(vc, snd, ii, jj)
             N = get_LogNegNum(CovM)
+            Nsq = get_sqIneq(vc, CovM)
             LnM[0, ii, jj] = N
+            LnM2[0, ii, jj] = Nsq
 
-    return LnM
+    return LnM, LnM2
 
 
 vc = sn.variable_carrier()
+vc.fifolder = 'sn_data//'
+vc.LP = 1
+
+savename = '957_G27mV_LogN.mtx'
+savename2 = '957_G27mV_ineqSq.mtx'
+vc.filein1 = 'S1_957_G27mV_SNCovMat_cI1I1.mtx'
+vc.filein2 = 'S1_957_G27mV_SNCovMat_cQ1Q1.mtx'
+vc.filein3 = 'S1_957_G27mV_SNCovMat_cI2I2.mtx'
+vc.filein4 = 'S1_957_G27mV_SNCovMat_cQ2Q2.mtx'
+vc.filein5 = 'S1_957_G27mV_SNV.mtx'
+vc.filein6 = 'S1_957_G27mV_SNCovMat_cI1I2.mtx'
+vc.filein7 = 'S1_957_G27mV_SNCovMat_cI1Q2.mtx'
+vc.filein8 = 'S1_957_G27mV_SNCovMat_cQ1I2.mtx'
+vc.filein9 = 'S1_957_G27mV_SNCovMat_cQ1Q2.mtx'
+vc.filein10 = 'S1_957_G27mV_SNCovMat_cI1Q1.mtx'
+vc.filein11 = 'S1_957_G27mV_SNCovMat_cI2Q2.mtx'
+vc.load_and_go()
+snd = sn.DoSNfits(vc)
+LnM, LnM2 = NMatrix(vc, snd, cpt=5, SnR=2)
+headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
+savemtx(savename, LnM, headtxt)
+headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
+savemtx(savename2, LnM2, headtxt2)
 
 savename = '958_G27mV_LogN.mtx'
+savename2 = '958_G27mV_ineqSq.mtx'
 vc.filein1 = 'S1_958_G27mV_SNCovMat_cI1I1.mtx'
 vc.filein2 = 'S1_958_G27mV_SNCovMat_cQ1Q1.mtx'
 vc.filein3 = 'S1_958_G27mV_SNCovMat_cI2I2.mtx'
@@ -120,28 +175,12 @@ vc.filein8 = 'S1_958_G27mV_SNCovMat_cQ1I2.mtx'
 vc.filein9 = 'S1_958_G27mV_SNCovMat_cQ1Q2.mtx'
 vc.filein10 = 'S1_958_G27mV_SNCovMat_cI1Q1.mtx'
 vc.filein11 = 'S1_958_G27mV_SNCovMat_cI2Q2.mtx'
-
-# savename = '957_G27mV_LogN.mtx'
-# vc.filein1 = 'S1_957_G27mV_SNCovMat_cI1I1.mtx'
-# vc.filein2 = 'S1_957_G27mV_SNCovMat_cQ1Q1.mtx'
-# vc.filein3 = 'S1_957_G27mV_SNCovMat_cI2I2.mtx'
-# vc.filein4 = 'S1_957_G27mV_SNCovMat_cQ2Q2.mtx'
-# vc.filein5 = 'S1_957_G27mV_SNV.mtx'
-# vc.filein6 = 'S1_957_G27mV_SNCovMat_cI1I2.mtx'
-# vc.filein7 = 'S1_957_G27mV_SNCovMat_cI1Q2.mtx'
-# vc.filein8 = 'S1_957_G27mV_SNCovMat_cQ1I2.mtx'
-# vc.filein9 = 'S1_957_G27mV_SNCovMat_cQ1Q2.mtx'
-# vc.filein10 = 'S1_957_G27mV_SNCovMat_cI1Q1.mtx'
-# vc.filein11 = 'S1_957_G27mV_SNCovMat_cI2Q2.mtx'
-#
-
-# vc.filein11 = vc.filein10
-vc.fifolder = 'sn_data//'
-vc.LP = 2.2
 vc.load_and_go()
-snd = sn.DoSNfits(vc)
-
-LnM = NMatrix(vc, snd)
-
+snd = sn.DoSNfits(vc, False)
+LnM, LnM2 = NMatrix(vc, snd, cpt=5, SnR=0)
 headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
 savemtx(savename, LnM, headtxt)
+headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
+savemtx(savename2, LnM2, headtxt2)
+
+# vc.filein11 = vc.filein10

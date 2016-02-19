@@ -239,7 +239,7 @@ class variable_carrier():
         self.dIV = xderiv(self.Vm[0], self.d3step)
         self.dIVlp = gaussian_filter1d(abs(self.dIV), self.LP)  # Gausfilter
 
-    def make_cvals(self, cpt=5):
+    def make_cvals(self, cpt=5, snr=3):
         '''
         Using this function to obtain the amount of noise present
         in the background while ignoring the regions where the cross corr...
@@ -302,24 +302,24 @@ class variable_carrier():
                 self.cvals['uQ1I2'][x2, x3] = uqi
                 self.cvals['uQ1Q2'][x2, x3] = uqq
                 # calculate the normed values and store them in the matrix
-                self.cvals['nI1I1'][x2, x3] = r1i[x2, x3]+u1i
-                self.cvals['nQ1Q1'][x2, x3] = r1q[x2, x3]+u1q
-                self.cvals['nI2I2'][x2, x3] = r2i[x2, x3]+u2i
-                self.cvals['nQ2Q2'][x2, x3] = r2q[x2, x3]+u2q
+                self.cvals['nI1I1'][x2, x3] = r1i[x2, x3]+u1i/2
+                self.cvals['nQ1Q1'][x2, x3] = r1q[x2, x3]+u1q/2
+                self.cvals['nI2I2'][x2, x3] = r2i[x2, x3]+u2i/2
+                self.cvals['nQ2Q2'][x2, x3] = r2q[x2, x3]+u2q/2
                 # that error is already added from the shot noise values
                 rii = self.cvals['rI1I2'][x2, x3]
                 riq = self.cvals['rI1Q2'][x2, x3]
                 rqi = self.cvals['rQ1I2'][x2, x3]
                 rqq = self.cvals['rQ1Q2'][x2, x3]
-                self.cvals['nI1I2'][x2, x3] = rii+uii if rii < 0 else rii-uii
-                self.cvals['nI1Q2'][x2, x3] = riq+uiq if riq < 0 else riq-uiq
-                self.cvals['nQ1I2'][x2, x3] = rqi+uqi if rqi < 0 else rqi-uqi
-                self.cvals['nQ1Q2'][x2, x3] = rqq+uqq if rqq < 0 else rqq-uqq
+                self.cvals['nI1I2'][x2, x3] = rii+uii/2 if rii < 0 else rii-uii/2
+                self.cvals['nI1Q2'][x2, x3] = riq+uiq/2 if riq < 0 else riq-uiq/2
+                self.cvals['nQ1I2'][x2, x3] = rqi+uqi/2 if rqi < 0 else rqi-uqi/2
+                self.cvals['nQ1Q2'][x2, x3] = rqq+uqq/2 if rqq < 0 else rqq-uqq/2
                 # 0 if the uncertainty is larger than the detected value:
-                if rii < uii: self.cvals['nI1I2'][x2, x3] = 0.0
-                if riq < uiq: self.cvals['nI1Q2'][x2, x3] = 0.0
-                if rqi < uqi: self.cvals['nQ1I2'][x2, x3] = 0.0
-                if rqq < uqq: self.cvals['nQ1Q2'][x2, x3] = 0.0
+                if rii < uii*snr: self.cvals['nI1I2'][x2, x3] = 0.0
+                if riq < uiq*snr: self.cvals['nI1Q2'][x2, x3] = 0.0
+                if rqi < uqi*snr: self.cvals['nQ1I2'][x2, x3] = 0.0
+                if rqq < uqq*snr: self.cvals['nQ1Q2'][x2, x3] = 0.0
 
     def calU(self, z1, lags0, cpt):
         '''
