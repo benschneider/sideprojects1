@@ -168,20 +168,6 @@ class variable_carrier():
         self.RTR = 1009.1 * 1e3           # Ib Resistance in Ohm
         self.RG = 1000.0                  # Pre Amp gain factor
         self.cvals = {}         # Cross corr dictionary with key value elements
-        self.filein1 = 'S1_949_G0mV_SN_PCovMat_cI1I1.mtx'
-        self.filein2 = 'S1_949_G0mV_SN_PCovMat_cQ1Q1.mtx'
-        self.filein3 = 'S1_949_G0mV_SN_PCovMat_cI2I2.mtx'
-        self.filein4 = 'S1_949_G0mV_SN_PCovMat_cQ2Q2.mtx'
-        self.filein5 = 'S1_949_G0mV_SN_PV.mtx'
-
-        # cross correlation files
-        self.filein6 = 'S1_949_G0mV_SN_PCovMat_cI1I2.mtx'
-        self.filein7 = 'S1_949_G0mV_SN_PCovMat_cI1Q2.mtx'
-        self.filein8 = 'S1_949_G0mV_SN_PCovMat_cQ1I2.mtx'
-        self.filein9 = 'S1_949_G0mV_SN_PCovMat_cQ1Q2.mtx'
-        self.filein10 = 'S1_949_G0mV_SN_PCovMat_cI1Q1.mtx'
-        self.filein11 = 'S1_949_G0mV_SN_PCovMat_cI2Q2.mtx'
-        self.fifolder = 'sn_data//'
 
     def load_and_go(self):
         '''
@@ -196,7 +182,8 @@ class variable_carrier():
 
     def loaddata(self):
         '''
-        Loads the data defined in self.filein1 .. 5
+        Loads the data defined in self.filein1 ..
+        This loads the shotnoise relevant data files
         '''
         (self.I1I1, d3,
          self.d2, self.d1, self.dz) = loadmtx(self.fifolder + self.filein1)
@@ -331,7 +318,7 @@ class variable_carrier():
         '''
         z2 = z1[:lags0-cpt]*1.0
         z3 = z1[lags0+cpt:]*1.0
-        return np.sqrt(np.var(np.concatenate([z2, z3])))
+        return np.abs(np.sqrt(np.var(np.concatenate([z2, z3]))))
 
 
 def DoSNfits(vc, plotFit=False):
@@ -363,11 +350,12 @@ def DoSNfits(vc, plotFit=False):
     Right now this def getSNfits does too many things for a single definition:
         - loads the defined mtx files into the vc class
     '''
-    close('all')
+    if plotFit is True:
+        # close('all')
+        ion()
     SNr = SN_class()
     vc.load_and_go()
     vc.calc_diff_resistance()
-    ion()
     # create crop vector for the fitting
     crop_within = find_nearest(vc.I, -1.55e-6), find_nearest(vc.I, 1.55e-6)
     crop_outside = find_nearest(vc.I, -19e-6), find_nearest(vc.I, 19e-6)
