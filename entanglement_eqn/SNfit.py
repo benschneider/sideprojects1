@@ -79,22 +79,31 @@ def fitfunc(G, Tn, T, vc):
             (vc.Z0/((vc.dRm+vc.Z0)*(vc.dRm+vc.Z0))))
 
 
-def fitfun2(params, vc):
+def fitfun2(params, vc, digi):
     '''
     req: params with G, Tn, T; and vc as variable carrier
     return: fitting value or array
+    also set digi='D1' or digi='D2'
     '''
-    G = params['G'].value
-    Tn = params['Tn'].value
-    T = params['T'].value
+    if digi == 'D1':
+        G = params['G1'].value
+        Tn = params['Tn1'].value
+        T = params['T1'].value
+        vc.f = vc.f1
+    if digi == 'D2':
+        G = params['G2'].value
+        Tn = params['Tn2'].value
+        T = params['T2'].value
+        vc.f = vc.f2
     return fitfunc(G, Tn, T, vc)
 
 
-def ministuff(params, vc, measd):
+def ministuff(params, vc, measd, digi='D1'):
     '''
     req: params with G, Tn, T
          I (current array or value) (Amps)
          dRm (Resistance for this current)
+         digi='D1' or 'D2'
          measured data (value or array)
          crop values for example create with:
          crop_within = find_nearest(I, -0.9e-6), find_nearest(I, 1.1e-6)
@@ -106,7 +115,7 @@ def ministuff(params, vc, measd):
     returns: residuals*1e10;
          (difference between measured and fitted data after it has been croped)
     '''
-    SNfit = fitfun2(params, vc)
+    SNfit = fitfun2(params, vc, digi)
     SNfit[vc.crop[0][0]:vc.crop[0][1]] = 0
     measd[vc.crop[0][0]:vc.crop[0][1]] = 0
     SNfit[0:(vc.crop[1][0])] = 0
@@ -114,6 +123,35 @@ def ministuff(params, vc, measd):
     measd[0:(vc.crop[1][0])] = 0
     measd[vc.crop[1][1]:-1] = 0
     return (measd-SNfit)*1e10
+
+
+def bigstuff(params, vc, pidx):
+    '''
+    return all 3 as one combined thing (shotnoise 1,2 and photon differences)
+    '''
+    data1 = vc.cPD1[pidx]*1.0
+    data2 = vc.cPD2[pidx]*1.0
+    snd1 = ministuff(params, vc, data1, 'D1')
+    snd2 = ministuff(params, vc, data2, 'D2')
+    phtd = photondiff(params, data1, data2, vc)
+    return (abs(snd1) + abs(snd2))*phtd
+
+
+def photondiff(params, data1, data2, vc):
+    '''
+    calculates the difference in photon numbers at the hemt input
+    for a current bias of Ib0 (0 uA) and after the amplifier photons and temp
+    photons are subtracted.
+    '''
+    p1 = data1[vc.Ib0]
+    p2 = data2[vc.Ib0]
+    Ent1 = params['T1'].value*Kb
+    Ent2 = params['T2'].value*Kb
+    Amp1 = params['Tn1'].value*Kb
+    Amp2 = params['Tn2'].value*Kb
+    Phot1 = (p1-Amp1-Ent1)/h*vc.f1
+    Phot2 = (p2-Amp2-Ent2)/h*vc.f2
+    return (Phot1 - Phot2)*1e2
 
 
 class SN_class():
@@ -131,6 +169,8 @@ class SN_class():
         self.G2 = []
         self.Tn1 = []
         self.Tn2 = []
+        self.T1 = []
+        self.T2 = []
 
 
 class variable_carrier():
@@ -280,6 +320,10 @@ class variable_carrier():
                 uiq = self.calU(self.I1Q2[:, x2, x3], self.lags0, cpt)
                 uqi = self.calU(self.Q1I2[:, x2, x3], self.lags0, cpt)
                 uqq = self.calU(self.Q1Q2[:, x2, x3], self.lags0, cpt)
+                rii = self.cvals['rI1I2'][x2, x3]
+                riq = self.cvals['rI1Q2'][x2, x3]
+                rqi = self.cvals['rQ1I2'][x2, x3]
+                rqq = self.cvals['rQ1Q2'][x2, x3]
                 self.cvals['uI1I1'][x2, x3] = u1i
                 self.cvals['uQ1Q1'][x2, x3] = u1q
                 self.cvals['uI2I2'][x2, x3] = u2i
@@ -289,24 +333,20 @@ class variable_carrier():
                 self.cvals['uQ1I2'][x2, x3] = uqi
                 self.cvals['uQ1Q2'][x2, x3] = uqq
                 # calculate the normed values and store them in the matrix
-                self.cvals['nI1I1'][x2, x3] = r1i[x2, x3]+u1i/2
-                self.cvals['nQ1Q1'][x2, x3] = r1q[x2, x3]+u1q/2
-                self.cvals['nI2I2'][x2, x3] = r2i[x2, x3]+u2i/2
-                self.cvals['nQ2Q2'][x2, x3] = r2q[x2, x3]+u2q/2
+                self.cvals['nI1I1'][x2, x3] = r1i[x2, x3]  # +u1i/2
+                self.cvals['nQ1Q1'][x2, x3] = r1q[x2, x3]  # +u1q/2
+                self.cvals['nI2I2'][x2, x3] = r2i[x2, x3]  # +u2i/2
+                self.cvals['nQ2Q2'][x2, x3] = r2q[x2, x3]  # +u2q/2
                 # that error is already added from the shot noise values
-                rii = self.cvals['rI1I2'][x2, x3]
-                riq = self.cvals['rI1Q2'][x2, x3]
-                rqi = self.cvals['rQ1I2'][x2, x3]
-                rqq = self.cvals['rQ1Q2'][x2, x3]
-                self.cvals['nI1I2'][x2, x3] = rii+uii/2 if rii < 0 else rii-uii/2
-                self.cvals['nI1Q2'][x2, x3] = riq+uiq/2 if riq < 0 else riq-uiq/2
-                self.cvals['nQ1I2'][x2, x3] = rqi+uqi/2 if rqi < 0 else rqi-uqi/2
-                self.cvals['nQ1Q2'][x2, x3] = rqq+uqq/2 if rqq < 0 else rqq-uqq/2
-                # 0 if the uncertainty is larger than the detected value:
-                if rii < uii*snr: self.cvals['nI1I2'][x2, x3] = 0.0
-                if riq < uiq*snr: self.cvals['nI1Q2'][x2, x3] = 0.0
-                if rqi < uqi*snr: self.cvals['nQ1I2'][x2, x3] = 0.0
-                if rqq < uqq*snr: self.cvals['nQ1Q2'][x2, x3] = 0.0
+                self.cvals['nI1I2'][x2, x3] = rii  # +uii/2 if rii < 0 else rii-uii/2
+                self.cvals['nI1Q2'][x2, x3] = riq  # +uiq/2 if riq < 0 else riq-uiq/2
+                self.cvals['nQ1I2'][x2, x3] = rqi  # +uqi/2 if rqi < 0 else rqi-uqi/2
+                self.cvals['nQ1Q2'][x2, x3] = rqq  # +uqq/2 if rqq < 0 else rqq-uqq/2
+                # 0 if the requested SnR ratio is not met
+                if abs(rii) < snr*uii/2.0: self.cvals['nI1I2'][x2, x3] = 0.0
+                if abs(riq) < snr*uiq/2.0: self.cvals['nI1Q2'][x2, x3] = 0.0
+                if abs(rqi) < snr*uqi/2.0: self.cvals['nQ1I2'][x2, x3] = 0.0
+                if abs(rqq) < snr*uqq/2.0: self.cvals['nQ1Q2'][x2, x3] = 0.0
 
     def calU(self, z1, lags0, cpt):
         '''
@@ -318,7 +358,7 @@ class variable_carrier():
         '''
         z2 = z1[:lags0-cpt]*1.0
         z3 = z1[lags0+cpt:]*1.0
-        return np.abs(np.sqrt(np.var(np.concatenate([z2, z3]))))
+        return abs(np.sqrt(np.var(np.concatenate([z2, z3]))))
 
 
 def DoSNfits(vc, plotFit=False):
@@ -351,20 +391,23 @@ def DoSNfits(vc, plotFit=False):
         - loads the defined mtx files into the vc class
     '''
     if plotFit is True:
-        # close('all')
+        close('all')
         ion()
     SNr = SN_class()
     vc.load_and_go()
     vc.calc_diff_resistance()
     # create crop vector for the fitting
-    crop_within = find_nearest(vc.I, -1.55e-6), find_nearest(vc.I, 1.55e-6)
+    crop_within = find_nearest(vc.I, -1.3e-6), find_nearest(vc.I, 1.3e-6)
     crop_outside = find_nearest(vc.I, -19e-6), find_nearest(vc.I, 19e-6)
     vc.crop = [crop_within, crop_outside]
     # create fitting parameters
     params = Parameters()
-    params.add('Tn', value=3.7, vary=True)  # , min=2.2, max=5)
-    params.add('G', value=3.38e7, vary=True)  # , min=1e6, max=1e9)
-    params.add('T', value=0.012, vary=False, min=0.01, max=0.5)
+    params.add('Tn1', value=3.7, vary=True, min=2.0, max=4.0)
+    params.add('G1', value=3.38e7, vary=True, min=1e6, max=1e9)
+    params.add('T1', value=0.05, vary=False, min=0.01, max=0.25)
+    params.add('Tn2', value=3.7, vary=True, min=2.0, max=4.0)
+    params.add('G2', value=3.38e7, vary=True, min=1e6, max=1e9)
+    params.add('T2', value=0.05, vary=False, min=0.01, max=0.25)
     data1 = vc.cPD1*1.0
     data2 = vc.cPD2*1.0
     for pidx in range(len(data1)):
@@ -374,52 +417,31 @@ def DoSNfits(vc, plotFit=False):
         fits selected data set
         records corresponding fit results into SN_r class values
         '''
-        vc.dRm = vc.dIVlp[pidx]    # select dRm which is wanted
-        vc.f = vc.f1
-        result = minimize(ministuff, params, args=(vc, data1[pidx]*1.0))
+        vc.dRm = vc.dIVlp[pidx]    # select dRm
+        result = minimize(ministuff, params, args=(vc, data1[pidx]*1.0, 'D1'))
+        result = minimize(ministuff, result.params,
+                          args=(vc, data2[pidx]*1.0, 'D2'))
+
+        # now fit all of them together:
+        result.params['T1'].vary = True
+        result.params['T2'].vary = True
+        result = minimize(bigstuff, result.params, args=(vc, pidx))
+        print 'RF power', vc.d2.lin[pidx]
         print report_fit(result)
-        SNr.G1del.append(result.params['G'].stderr)
-        SNr.Tn1del.append(result.params['Tn'].stderr)
-        SNr.G1.append(result.params['G'].value)
-        SNr.Tn1.append(result.params['Tn'].value)
-
+        SNr.G1del.append(result.params['G1'].stderr)
+        SNr.Tn1del.append(result.params['Tn1'].stderr)
+        SNr.G1.append(result.params['G1'].value)
+        SNr.Tn1.append(result.params['Tn1'].value)
+        SNr.T1.append(result.params['T1'].value)
+        SNr.G2del.append(result.params['G2'].stderr)
+        SNr.Tn2del.append(result.params['Tn2'].stderr)
+        SNr.G2.append(result.params['G2'].value)
+        SNr.Tn2.append(result.params['Tn2'].value)
+        SNr.T2.append(result.params['T2'].value)
         if plotFit is True:
-            SNfit1 = fitfun2(result.params, vc)
-            Pn1 = (result.params['G'].value*vc.B *
-                   (Kb*(result.params['Tn'].value)+0.5*h*vc.f1))
-            Pn1array = np.ones(len(vc.I))*Pn1
-            figure()
-            title1 = ('D1, RF-Drive: ' + str(vc.d2.lin[pidx]))
-            plot(vc.I, data1[pidx]*1e9)
-            hold(True)
-            plot(vc.I, SNfit1*1e9)
-            plot(vc.I, Pn1array*1e9)
-            title(title1)
-            hold(False)
-            show()
-
-        vc.f = vc.f2
-        result = minimize(ministuff, params, args=(vc, data2[pidx]*1.0))
-        print report_fit(result)
-        SNr.G2del.append(result.params['G'].stderr)
-        SNr.Tn2del.append(result.params['Tn'].stderr)
-        SNr.G2.append(result.params['G'].value)
-        SNr.Tn2.append(result.params['Tn'].value)
-
+            plotSNfit(result, vc, pidx, 'D1')
         if plotFit is True:
-            SNfit2 = fitfun2(result.params, vc)
-            Pn2 = (result.params['G'].value*vc.B *
-                   (Kb*(result.params['Tn'].value)+0.5*h*vc.f2))
-            Pn2array = np.ones(len(vc.I))*Pn2
-            figure()
-            title2 = ('D2, RF-Drive: ' + str(vc.d2.lin[pidx]))
-            plot(vc.I, data2[pidx]*1e9)
-            hold(True)
-            plot(vc.I, SNfit2*1e9)
-            plot(vc.I, Pn2array*1e9)
-            title(title2)
-            hold(False)
-            show()
+            plotSNfit(result, vc, pidx, 'D2')
 
     # lists to array
     SNr.G1 = np.array(SNr.G1)
@@ -445,9 +467,38 @@ def DoSNfits(vc, plotFit=False):
     SNr.Pn2del = (SNr.Pn2 * np.sqrt((SNr.G2del/SNr.G2)**2 +
                                     (SNr.Tn2del/SNr.Tn2)**2))
 
-    print 'Photons in1', SNr.Pi1.mean(), '+/-', SNr.Pi1del.mean()
-    print 'Photons in2', SNr.Pi2.mean(), '+/-', SNr.Pi2del.mean()
-    print 'Pn1', SNr.Pn1.mean(), '+/-', SNr.Pn1del.mean()
-    print 'Pn2', SNr.Pn2.mean(), '+/-', SNr.Pn2del.mean()
+    # print 'Photons in1', SNr.Pi1.mean(), '+/-', SNr.Pi1del.mean()
+    # print 'Photons in2', SNr.Pi2.mean(), '+/-', SNr.Pi2del.mean()
+    # print 'Pn1', SNr.Pn1.mean(), '+/-', SNr.Pn1del.mean()
+    # print 'Pn2', SNr.Pn2.mean(), '+/-', SNr.Pn2del.mean()
 
     return SNr
+
+
+def plotSNfit(result, vc, pidx, digi='D1'):
+    ''' result : fitting results
+        vc, variable carrier
+        pidx power index
+        digi = 'D1' or 'D2'
+        '''
+    if digi == 'D1':
+        data = vc.cPD1[pidx]*1.0
+        SNfit = fitfun2(result.params, vc, 'D1')
+        Pn = (result.params['G1'].value*vc.B *
+              (Kb*(result.params['Tn1'].value)+0.5*h*vc.f1))
+    if digi == 'D2':
+        data = vc.cPD2[pidx]*1.0
+        SNfit = fitfun2(result.params, vc, 'D2')
+        Pn = (result.params['G2'].value*vc.B *
+              (Kb*(result.params['Tn2'].value)+0.5*h*vc.f2))
+
+    Pnarray = np.ones(len(vc.I))*Pn
+    figure()
+    title2 = (digi + ', RF-Drive: ' + str(vc.d2.lin[pidx]))
+    plot(vc.I, data*1e9)
+    hold(True)
+    plot(vc.I, SNfit*1e9)
+    plot(vc.I, Pnarray*1e9)
+    title(title2)
+    hold(False)
+    show()
