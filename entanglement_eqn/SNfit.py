@@ -137,8 +137,12 @@ class variable_carrier():
         '''
         self.d3step = self.d3.lin[1] - self.d3.lin[0]   # get step-size
         self.dIV = xderiv(self.Vm[0], self.d3step)
-        self.dIV[self.dIV > 100.0] = 50.0  # Replace any value larger than 200
-        self.dIVlp = gaussian_filter1d(abs(self.dIV), self.LP)  # Gausfilter
+        # Replace any value larger than 100
+        # self.dIV[self.dIV > 100.0] = np.mean(self.dIV)
+        if self.LP > 0.0:
+            self.dIVlp = gaussian_filter1d(abs(self.dIV), self.LP)  # Gausfilter
+        else:
+            self.dIVlp = abs(self.dIV)
 
     def make_cvals(self, cpt=5, snr=3):
         '''
@@ -323,12 +327,13 @@ def fitfunc(G, Tn, T, vc):
     Amplifier and circulator impedance are both assumed to be Z0
     '''
     mf = (vc.Z0 / (vc.Z0 + vc.dRm))**2
-    vvzpf = h * vc.f * vc.Z0 / 2.0  # Volt^2 zpf
+    vvzpf = h * vc.f * vc.Z0 / 2.0
     vvsn = 2.0 * e * np.abs(vc.I) * vc.dRm * vc.dRm * mf
-    vvnt = 4 * kB * T * vc.dRm * mf
-    E1 = (vvsn + vvzpf) / vvnt
-    E2 = (vvsn - vvzpf) / vvnt
-    Svi = vvnt / (2 * vc.Z0) * (E1 / np.tanh(E1) + E2 / np.tanh(E2))
+    # vvnt = 4.0 * kB * T * vc.dRm * mf
+    vvnt = 4.0 * kB * vc.Tz * vc.Z0 * mf + 4.0 * kB * T * vc.dRm * mf
+    E1 = (vvsn + vvzpf) / (vvnt)
+    E2 = (vvsn - vvzpf) / (vvnt)
+    Svi = vvnt / (2.0 * vc.Z0) * (E1 / np.tanh(E1) + E2 / np.tanh(E2))
     return vc.B * G * (Svi + kB * Tn)
 
 
@@ -337,28 +342,30 @@ def fitfun2(params, vc, digi):
     req: params with G, Tn, T; and vc as variable carrier
     return: fitting value or array
     also set digi='D1' or digi='D2'
+
+    This function loads the params values
+    such that the values corresponding to the digitizer are used
     '''
     T = params['T'].value
+    vc.Tz = params['Tz'].value
     if digi == 'D1':
         G = params['G1'].value
         Tn = params['Tn1'].value
-        # T = params['T1'].value
         vc.f = vc.f1
     if digi == 'D2':
         G = params['G2'].value
         Tn = params['Tn2'].value
-        # T = params['T2'].value
         vc.f = vc.f2
     return fitfunc(G, Tn, T, vc)
 
 
-def ministuff(params, vc, measd, digi='D1'):
+def ministuff(params, vc, pidx, digi='D1'):
     '''
     req: params with G, Tn, T
          I (current array or value) (Amps)
          dRm (Resistance for this current)
          digi='D1' or 'D2'
-         measured data (value or array)
+         pidx index number to select power trace
          crop values for example create with:
          crop_within = find_nearest(I, -0.9e-6), find_nearest(I, 1.1e-6)
          crop_outside = find_nearest(I, -19.5e-6), find_nearest(I, 19.5e-6)
@@ -369,52 +376,60 @@ def ministuff(params, vc, measd, digi='D1'):
     returns: residuals*1e10;
          (difference between measured and fitted data after it has been croped)
     '''
-    SNfit = fitfun2(params, vc, digi)
-    SNfit[vc.crop[0][0]:vc.crop[0][1]] = 0
-    measd[vc.crop[0][0]:vc.crop[0][1]] = 0
-    SNfit[0:(vc.crop[1][0])] = 0
-    SNfit[vc.crop[1][1]:-1] = 0
-    measd[0:(vc.crop[1][0])] = 0
-    measd[vc.crop[1][1]:-1] = 0
-    return (measd - SNfit) * 1e10
+    # SNfit = fitfun2(params, vc, digi)
+    res, p = get_residuals(pidx, vc, params, digi)
+    res = cropTrace(res, vc)
+    return res * p - 1
+
+
+def cropTrace(trace, vc):
+    '''
+    'crops' a trace with the specifics given by
+    sets values to zero:
+    with the range of
+    vc.crop[0][0] to vc.crop[0][1]
+    the outer edges
+    fist index til vc.crop[1][0]
+    vc.crop[1][1] til last index
+    '''
+    newarray = trace*1.0
+    newarray[vc.crop[0][0]:vc.crop[0][1]] = 0
+    newarray[0:(vc.crop[1][0])] = 0
+    newarray[vc.crop[1][1]:-1] = 0
+    return np.array(newarray)
+
+
+def get_residuals(pidx, vc, params, digi='D1'):
+    '''
+    returns residuals, and difference between min(data) - min(fit)
+    '''
+    if digi == 'D1':
+        factor = vc.f1*h*vc.B*params['G1'].value  # factor to photon #
+        data = np.array(vc.cPD1[pidx]) * 1.0
+        SNf = fitfun2(params, vc, digi='D1')
+
+    if digi == 'D2':
+        factor = vc.f2*h*vc.B*params['G2'].value
+        data = np.array(vc.cPD2[pidx]) * 1.0
+        SNf = fitfun2(params, vc, digi='D2')
+
+    res = np.array(np.abs((data - SNf)/factor)) + 1
+    p = np.abs(np.min(data)-np.min(SNf))/factor + 1
+    # scpos = vc.Ib0 + 1
+    # p = np.abs(data[scpos] - SNf[scpos])/factor + 1
+    return res, p
 
 
 def bigstuff(params, vc, pidx):
     '''
     return all 3 as one combined thing (shotnoise 1,2 and photon differences)
     '''
-    data1 = vc.cPD1[pidx] * 1.0
-    data2 = vc.cPD2[pidx] * 1.0
-    snd1 = ministuff(params, vc, data1, digi='D1')
-    snd2 = ministuff(params, vc, data2, digi='D2')
-    # ph1, ph2 = photoncal(params, pidx, vc)
-    # phtd = abs(1 - ph1 / ph2) if abs(1 - ph1 / ph2) > 0.15 else 1.0
-    # zpfmin = 1 - ph1 - ph2 if 1 - ph1 - ph2 > 0.0 else 1e4  # zpf>0.5 photons
-    return abs(snd1) * abs(snd2)  # + zpfmin
-    # return phtd
+    res1, p1 = get_residuals(pidx, vc, params, digi='D1')
+    res2, p2 = get_residuals(pidx, vc, params, digi='D2')
+    snd1 = cropTrace(res1, vc)
+    snd2 = cropTrace(res2, vc)
 
-
-def photoncal(params, pidx, vc):
-    '''
-    calculates the difference in photon numbers at the hemt input
-    for a current bias of Ib0 (0 uA) and after the amplifier photons
-    are subtracted.
-    '''
-    d1 = vc.cPD1[pidx] * 1.0
-    d2 = vc.cPD2[pidx] * 1.0
-    p1 = d1[vc.Ib0] / (h * vc.f1 * vc.B * params['G1'].value)
-    p2 = d2[vc.Ib0] / (h * vc.f2 * vc.B * params['G2'].value)
-    Amp1 = kB * params['Tn1'].value / (h * vc.f1)
-    Amp2 = kB * params['Tn2'].value / (h * vc.f2)
-    Phot1 = p1 - Amp1  # -Ent1
-    Phot2 = p2 - Amp2  # -Ent2
-    return Phot1, Phot2
-    # phT1 = blackbodyrad(vc.f1, params['T'].value)  # est phot num from Temp
-    # phT2 = blackbodyrad(vc.f2, params['T'].value)
-    # Need to make sure that the number of photons are strictly more than 0.5
-    # since that is due to the zpf! thus Phot1+Phot2 - 1 > 0
-    # return Phot1 - phT1, Phot2 - phT2
-    # return abs(1-Phot1/Phot2) if abs(1-Phot1/Phot2) > 0.15 else 1.0
+    return (abs(snd1) * abs(snd2) * p1 * p2 - 1.0)  # + (p1 + p2 - 2)
 
 
 def DoSNfits(vc, plotFit=False):
@@ -453,21 +468,21 @@ def DoSNfits(vc, plotFit=False):
     vc.load_and_go()
     vc.calc_diff_resistance()
     # create crop vector for the fitting
-    crop_within = find_nearest(vc.I, -8e-6), find_nearest(vc.I, 8e-6)
+    crop_within = find_nearest(vc.I, -2.0e-6), find_nearest(vc.I, 2.0e-6)
+    # crop_within = find_nearest(vc.I, -0.0), find_nearest(vc.I, 0.0)
     # crop_within = find_nearest(vc.I, -0.4e-6), find_nearest(vc.I, 0.5e-6)
     crop_outside = find_nearest(vc.I, -19e-6), find_nearest(vc.I, 19e-6)
     vc.crop = [crop_within, crop_outside]
     # create fitting parameters
     params = Parameters()
     params.add('Tn1', value=3.7, vary=True, min=2.0, max=5.0)
-    params.add('G1', value=3.38e7, vary=True, min=1e6, max=1e9)
-    params.add('Tn2', value=3.7, vary=True, min=2.0, max=5.0)
-    params.add('G2', value=3.38e7, vary=True, min=1e6, max=1e9)
+    params.add('G1', value=3.38e7, vary=True, min=1e7, max=1e8)
+    params.add('Tn2', value=3.2, vary=True, min=2.0, max=5.0)
+    params.add('G2', value=4.8e7, vary=True, min=1e7, max=1e8)
     # params.add('T1', value=0.05, vary=False, min=0.01, max=0.25)
     # params.add('T2', value=0.05, vary=False, min=0.01, max=0.25)
-    params.add('T', value=vc.Texp, vary=False, min=0.001, max=0.060)
-    data1 = vc.cPD1 * 1.0
-    data2 = vc.cPD2 * 1.0
+    params.add('T', value=vc.Texp, vary=True, min=0.001, max=0.050)
+    params.add('Tz', value=vc.Texp, vary=True, min=0.001, max=0.050)
     for pidx in range(vc.cPD1.shape[0]):
         '''
         scales Voltage_trace[selected power] to Volts
@@ -475,14 +490,12 @@ def DoSNfits(vc, plotFit=False):
         fits selected data set
         records corresponding fit results into SN_r class values
         '''
+        # vc.dRm = vc.dIVlp[pidx, ::-1]  # select dRm
         vc.dRm = vc.dIVlp[pidx]  # select dRm
-        result = minimize(ministuff, params, args=(vc, data1[pidx] * 1.0, 'D1'))
-        result = minimize(ministuff,
-                          result.params, args=(vc, data2[pidx] * 1.0, 'D2'))
+        result = minimize(ministuff, params, args=(vc, pidx, 'D1'))
+        result = minimize(ministuff, result.params, args=(vc, pidx, 'D2'))
 
         # now fit all of them together:
-        # result.params['T1'].vary = True
-        # result.params['T2'].vary = True
         result.params['T'].vary = True
         result = minimize(bigstuff, result.params, args=(vc, pidx))
         print 'RF power', vc.d2.lin[pidx]
@@ -525,12 +538,6 @@ def DoSNfits(vc, plotFit=False):
     SNr.Pn2 = SNr.G2 * vc.B * SNr.Pi2 * (h * vc.f2)
     SNr.Pn2del = (SNr.Pn2 * np.sqrt((SNr.G2del / SNr.G2)**2 +
                                     (SNr.Tn2del / SNr.Tn2)**2))
-
-    # print 'Photons in1', SNr.Pi1.mean(), '+/-', SNr.Pi1del.mean()
-    # print 'Photons in2', SNr.Pi2.mean(), '+/-', SNr.Pi2del.mean()
-    # print 'Pn1', SNr.Pn1.mean(), '+/-', SNr.Pn1del.mean()
-    # print 'Pn2', SNr.Pn2.mean(), '+/-', SNr.Pn2del.mean()
-
     return SNr
 
 
