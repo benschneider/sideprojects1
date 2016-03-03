@@ -27,7 +27,7 @@ def get_LogNegNum(CovM):
     C = np.linalg.det(CovM[:2, 2:])
     sigma = A + B - 2.0*C
     vn = np.sqrt(sigma/2.0 - np.sqrt(sigma*sigma - 4.0*V)/2.0)
-    # if C == 0 : vn = vn*4   # N should be strictly negative for no Corr
+    # if C == 0 : vn = vn*8   # N should be strictly negative for no Corr
     # return -np.log10(2.0*vn)  # maybe this should be 4*vn
     if C == 0:
         return 0.0
@@ -55,7 +55,7 @@ def get_sqIneq(vc, CovM):
     ineq = ((2.0*np.sqrt(vc.f1*vc.f2)+(n1+n2)) /
             (vc.f1*(2.0*n1+1.0) + vc.f2*(2.0*n2+1.0)))
 
-    return squeezing - ineq if (squeezing - ineq) > 0.0 else 0.0
+    return squeezing if (squeezing - ineq) > 0.0 else 0.0
 
 
 def TwoModeSqueeze_inequality(f1, f2, n):
@@ -92,14 +92,15 @@ def createCovMat(vc, snd, power1=0, Ibx=0):
     I1Q1 = 0.0
     I2Q2 = 0.0
 
+    pidx = power1
     # To convert to photon numbers at the input of the Hemt
-    g1 = snd.G1[0]*h*vc.f1*vc.B
-    g2 = snd.G2[0]*h*vc.f2*vc.B
+    g1 = snd.G1[pidx]*h*vc.f1*vc.B
+    g2 = snd.G2[pidx]*h*vc.f2*vc.B
     g12 = np.sqrt(g1*g2)
 
     # Added Noise Photons by the Amp (without zpf)
-    a1 = (snd.Pi1[0] - 0.5)/2.0
-    a2 = (snd.Pi2[0] - 0.5)/2.0
+    a1 = (snd.Pi1[pidx] - 0.5)/2.0
+    a2 = (snd.Pi2[pidx] - 0.5)/2.0
 
     # Create Covariance matrix (includes uncertainty from data selection)
     covM = np.array([[I1I1/g1-a1, I1Q1/g1, I1I2/g12, I1Q2/g12],
@@ -108,8 +109,8 @@ def createCovMat(vc, snd, power1=0, Ibx=0):
                     [I1Q2/g12, Q1Q2/g12, I2Q2/g2, Q2Q2/g2-a2]])
 
     # Add uncertainty from amplifier noise and the fit
-    # n1 = snd.Pi1del[power1]/2.0
-    # n2 = snd.Pi2del[power1]/2.0
+    # n1 = snd.Pi1del[0]/2.0
+    # n2 = snd.Pi2del[0]/2.0
     # Uamp = np.array([[n1, 0, 0, 0],
     #                  [0, n1, 0, 0],
     #                  [0, 0, n2, 0],
@@ -119,7 +120,7 @@ def createCovMat(vc, snd, power1=0, Ibx=0):
     return covM
 
 
-def NMatrix(vc, snd, cpt=5, SnR=0.5):
+def NMatrix(vc, snd, cpt=7, SnR=2):
     '''
     This assembles the Log neg matrix LnM
     '''
@@ -139,70 +140,71 @@ def NMatrix(vc, snd, cpt=5, SnR=0.5):
 
 vc = sn.variable_carrier()
 vc.fifolder = 'sn_data//'
-vc.LP = 2.2
+vc.LP = 1.2
+vc.Texp = 0.012
 
-savename = '949_G0mV_LogN.mtx'
-savename2 = '949_G0mV_ineqSq.mtx'
-vc.filein1 = 'S1_949_G0mV_SN_PCovMat_cI1I1.mtx'
-vc.filein2 = 'S1_949_G0mV_SN_PCovMat_cQ1Q1.mtx'
-vc.filein3 = 'S1_949_G0mV_SN_PCovMat_cI2I2.mtx'
-vc.filein4 = 'S1_949_G0mV_SN_PCovMat_cQ2Q2.mtx'
-vc.filein5 = 'S1_949_G0mV_SN_PV.mtx'
-vc.filein6 = 'S1_949_G0mV_SN_PCovMat_cI1I2.mtx'
-vc.filein7 = 'S1_949_G0mV_SN_PCovMat_cI1Q2.mtx'
-vc.filein8 = 'S1_949_G0mV_SN_PCovMat_cQ1I2.mtx'
-vc.filein9 = 'S1_949_G0mV_SN_PCovMat_cQ1Q2.mtx'
-vc.filein10 = 'S1_949_G0mV_SN_PCovMat_cI1Q1.mtx'
-vc.filein11 = 'S1_949_G0mV_SN_PCovMat_cI2Q2.mtx'
-vc.load_and_go()
-snd = sn.DoSNfits(vc)
-LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=1)
-headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
-savemtx(savename, LnM, headtxt)
-headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
-savemtx(savename2, LnM2, headtxt2)
-
-savename = '950_G0mV_LogN.mtx'
-savename2 = '950_G0mV_ineqSq.mtx'
-vc.filein1 = 'S1_950_G0mV_SN_PCovMat_cI1I1.mtx'
-vc.filein2 = 'S1_950_G0mV_SN_PCovMat_cQ1Q1.mtx'
-vc.filein3 = 'S1_950_G0mV_SN_PCovMat_cI2I2.mtx'
-vc.filein4 = 'S1_950_G0mV_SN_PCovMat_cQ2Q2.mtx'
-vc.filein5 = 'S1_950_G0mV_SN_PV.mtx'
-vc.filein6 = 'S1_950_G0mV_SN_PCovMat_cI1I2.mtx'
-vc.filein7 = 'S1_950_G0mV_SN_PCovMat_cI1Q2.mtx'
-vc.filein8 = 'S1_950_G0mV_SN_PCovMat_cQ1I2.mtx'
-vc.filein9 = 'S1_950_G0mV_SN_PCovMat_cQ1Q2.mtx'
-vc.filein10 = 'S1_950_G0mV_SN_PCovMat_cI1Q1.mtx'
-vc.filein11 = 'S1_950_G0mV_SN_PCovMat_cI2Q2_org.mtx'
-vc.load_and_go()
-snd = sn.DoSNfits(vc)
-LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=1)
-headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
-savemtx(savename, LnM, headtxt)
-headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
-savemtx(savename2, LnM2, headtxt2)
-
-savename = '951_G27mV_LogN.mtx'
-savename2 = '951_G27mV_ineqSq.mtx'
-vc.filein1 = 'S1_951_G27mV_SN_PCovMat_cI1I1.mtx'
-vc.filein2 = 'S1_951_G27mV_SN_PCovMat_cQ1Q1.mtx'
-vc.filein3 = 'S1_951_G27mV_SN_PCovMat_cI2I2.mtx'
-vc.filein4 = 'S1_951_G27mV_SN_PCovMat_cQ2Q2.mtx'
-vc.filein5 = 'S1_951_G27mV_SN_PV.mtx'
-vc.filein6 = 'S1_951_G27mV_SN_PCovMat_cI1I2.mtx'
-vc.filein7 = 'S1_951_G27mV_SN_PCovMat_cI1Q2.mtx'
-vc.filein8 = 'S1_951_G27mV_SN_PCovMat_cQ1I2.mtx'
-vc.filein9 = 'S1_951_G27mV_SN_PCovMat_cQ1Q2.mtx'
-vc.filein10 = 'S1_951_G27mV_SN_PCovMat_cI1Q1.mtx'
-vc.filein11 = 'S1_951_G27mV_SN_PCovMat_cI2Q2_org.mtx'
-vc.load_and_go()
-snd = sn.DoSNfits(vc)
-LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=1)
-headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
-savemtx(savename, LnM, headtxt)
-headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
-savemtx(savename2, LnM2, headtxt2)
+# savename = '949_G0mV_LogN.mtx'
+# savename2 = '949_G0mV_ineqSq.mtx'
+# vc.filein1 = 'S1_949_G0mV_SN_PCovMat_cI1I1.mtx'
+# vc.filein2 = 'S1_949_G0mV_SN_PCovMat_cQ1Q1.mtx'
+# vc.filein3 = 'S1_949_G0mV_SN_PCovMat_cI2I2.mtx'
+# vc.filein4 = 'S1_949_G0mV_SN_PCovMat_cQ2Q2.mtx'
+# vc.filein5 = 'S1_949_G0mV_SN_PV.mtx'
+# vc.filein6 = 'S1_949_G0mV_SN_PCovMat_cI1I2.mtx'
+# vc.filein7 = 'S1_949_G0mV_SN_PCovMat_cI1Q2.mtx'
+# vc.filein8 = 'S1_949_G0mV_SN_PCovMat_cQ1I2.mtx'
+# vc.filein9 = 'S1_949_G0mV_SN_PCovMat_cQ1Q2.mtx'
+# vc.filein10 = 'S1_949_G0mV_SN_PCovMat_cI1Q1.mtx'
+# vc.filein11 = 'S1_949_G0mV_SN_PCovMat_cI2Q2.mtx'
+# vc.load_and_go()
+# snd = sn.DoSNfits(vc)
+# LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=2)
+# headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
+# savemtx(savename, LnM, headtxt)
+# headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
+# savemtx(savename2, LnM2, headtxt2)
+#
+# savename = '950_G0mV_LogN.mtx'
+# savename2 = '950_G0mV_ineqSq.mtx'
+# vc.filein1 = 'S1_950_G0mV_SN_PCovMat_cI1I1.mtx'
+# vc.filein2 = 'S1_950_G0mV_SN_PCovMat_cQ1Q1.mtx'
+# vc.filein3 = 'S1_950_G0mV_SN_PCovMat_cI2I2.mtx'
+# vc.filein4 = 'S1_950_G0mV_SN_PCovMat_cQ2Q2.mtx'
+# vc.filein5 = 'S1_950_G0mV_SN_PV.mtx'
+# vc.filein6 = 'S1_950_G0mV_SN_PCovMat_cI1I2.mtx'
+# vc.filein7 = 'S1_950_G0mV_SN_PCovMat_cI1Q2.mtx'
+# vc.filein8 = 'S1_950_G0mV_SN_PCovMat_cQ1I2.mtx'
+# vc.filein9 = 'S1_950_G0mV_SN_PCovMat_cQ1Q2.mtx'
+# vc.filein10 = 'S1_950_G0mV_SN_PCovMat_cI1Q1.mtx'
+# vc.filein11 = 'S1_950_G0mV_SN_PCovMat_cI2Q2_org.mtx'
+# vc.load_and_go()
+# snd = sn.DoSNfits(vc)
+# LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=2)
+# headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
+# savemtx(savename, LnM, headtxt)
+# headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
+# savemtx(savename2, LnM2, headtxt2)
+#
+# savename = '951_G27mV_LogN.mtx'
+# savename2 = '951_G27mV_ineqSq.mtx'
+# vc.filein1 = 'S1_951_G27mV_SN_PCovMat_cI1I1.mtx'
+# vc.filein2 = 'S1_951_G27mV_SN_PCovMat_cQ1Q1.mtx'
+# vc.filein3 = 'S1_951_G27mV_SN_PCovMat_cI2I2.mtx'
+# vc.filein4 = 'S1_951_G27mV_SN_PCovMat_cQ2Q2.mtx'
+# vc.filein5 = 'S1_951_G27mV_SN_PV.mtx'
+# vc.filein6 = 'S1_951_G27mV_SN_PCovMat_cI1I2.mtx'
+# vc.filein7 = 'S1_951_G27mV_SN_PCovMat_cI1Q2.mtx'
+# vc.filein8 = 'S1_951_G27mV_SN_PCovMat_cQ1I2.mtx'
+# vc.filein9 = 'S1_951_G27mV_SN_PCovMat_cQ1Q2.mtx'
+# vc.filein10 = 'S1_951_G27mV_SN_PCovMat_cI1Q1.mtx'
+# vc.filein11 = 'S1_951_G27mV_SN_PCovMat_cI2Q2_org.mtx'
+# vc.load_and_go()
+# snd = sn.DoSNfits(vc)
+# LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=2)
+# headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
+# savemtx(savename, LnM, headtxt)
+# headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
+# savemtx(savename2, LnM2, headtxt2)
 
 savename = '952_G50mV_LogN.mtx'
 savename2 = '952_G50mV_ineqSq.mtx'
@@ -210,7 +212,7 @@ vc.filein1 = 'S1_952_G50mV_SN_P_I2correctedCovMat_cI1I1.mtx'
 vc.filein2 = 'S1_952_G50mV_SN_P_I2correctedCovMat_cQ1Q1.mtx'
 vc.filein3 = 'S1_952_G50mV_SN_P_I2correctedCovMat_cI2I2.mtx'
 vc.filein4 = 'S1_952_G50mV_SN_P_I2correctedCovMat_cQ2Q2.mtx'
-vc.filein5 = 'S1_952_G50mV_SN_P_I2correctedV.mtx'
+vc.filein5 = 'S1_952_G50mV_SN_P_I2correctedV2.mtx'
 vc.filein6 = 'S1_952_G50mV_SN_P_I2correctedCovMat_cI1I2.mtx'
 vc.filein7 = 'S1_952_G50mV_SN_P_I2correctedCovMat_cI1Q2.mtx'
 vc.filein8 = 'S1_952_G50mV_SN_P_I2correctedCovMat_cQ1I2.mtx'
@@ -218,53 +220,52 @@ vc.filein9 = 'S1_952_G50mV_SN_P_I2correctedCovMat_cQ1Q2.mtx'
 vc.filein10 = 'S1_952_G50mV_SN_P_I2correctedCovMat_cI1Q1.mtx'
 vc.filein11 = 'S1_952_G50mV_SN_P_I2correctedCovMat_cI2Q2.mtx'
 vc.load_and_go()
-snd = sn.DoSNfits(vc)
-LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=1)
+
+snd = sn.DoSNfits(vc, True)
+LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=2)
 headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
 savemtx(savename, LnM, headtxt)
 headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
 savemtx(savename2, LnM2, headtxt2)
 
-savename = '957_G27mV_LogN.mtx'
-savename2 = '957_G27mV_ineqSq.mtx'
-vc.filein1 = 'S1_957_G27mV_SNCovMat_cI1I1.mtx'
-vc.filein2 = 'S1_957_G27mV_SNCovMat_cQ1Q1.mtx'
-vc.filein3 = 'S1_957_G27mV_SNCovMat_cI2I2.mtx'
-vc.filein4 = 'S1_957_G27mV_SNCovMat_cQ2Q2.mtx'
-vc.filein5 = 'S1_957_G27mV_SNV.mtx'
-vc.filein6 = 'S1_957_G27mV_SNCovMat_cI1I2.mtx'
-vc.filein7 = 'S1_957_G27mV_SNCovMat_cI1Q2.mtx'
-vc.filein8 = 'S1_957_G27mV_SNCovMat_cQ1I2.mtx'
-vc.filein9 = 'S1_957_G27mV_SNCovMat_cQ1Q2.mtx'
-vc.filein10 = 'S1_957_G27mV_SNCovMat_cI1Q1.mtx'
-vc.filein11 = 'S1_957_G27mV_SNCovMat_cI2Q2.mtx'
-vc.load_and_go()
-snd = sn.DoSNfits(vc)
-LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=1)
-headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
-savemtx(savename, LnM, headtxt)
-headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
-savemtx(savename2, LnM2, headtxt2)
-
-savename = '958_G27mV_LogN.mtx'
-savename2 = '958_G27mV_ineqSq.mtx'
-vc.filein1 = 'S1_958_G27mV_SNCovMat_cI1I1.mtx'
-vc.filein2 = 'S1_958_G27mV_SNCovMat_cQ1Q1.mtx'
-vc.filein3 = 'S1_958_G27mV_SNCovMat_cI2I2.mtx'
-vc.filein4 = 'S1_958_G27mV_SNCovMat_cQ2Q2.mtx'
-vc.filein5 = 'S1_958_G27mV_SNV.mtx'
-vc.filein6 = 'S1_958_G27mV_SNCovMat_cI1I2.mtx'
-vc.filein7 = 'S1_958_G27mV_SNCovMat_cI1Q2.mtx'
-vc.filein8 = 'S1_958_G27mV_SNCovMat_cQ1I2.mtx'
-vc.filein9 = 'S1_958_G27mV_SNCovMat_cQ1Q2.mtx'
-vc.filein10 = 'S1_958_G27mV_SNCovMat_cI1Q1.mtx'
-vc.filein11 = 'S1_958_G27mV_SNCovMat_cI2Q2.mtx'
-vc.load_and_go()
-snd = sn.DoSNfits(vc, False)
-LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=1)
-headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
-savemtx(savename, LnM, headtxt)
-headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
-savemtx(savename2, LnM2, headtxt2)
-
-# vc.filein11 = vc.filein10
+# savename = '957_G27mV_LogN.mtx'
+# savename2 = '957_G27mV_ineqSq.mtx'
+# vc.filein1 = 'S1_957_G27mV_SNCovMat_cI1I1.mtx'
+# vc.filein2 = 'S1_957_G27mV_SNCovMat_cQ1Q1.mtx'
+# vc.filein3 = 'S1_957_G27mV_SNCovMat_cI2I2.mtx'
+# vc.filein4 = 'S1_957_G27mV_SNCovMat_cQ2Q2.mtx'
+# vc.filein5 = 'S1_957_G27mV_SNV.mtx'
+# vc.filein6 = 'S1_957_G27mV_SNCovMat_cI1I2.mtx'
+# vc.filein7 = 'S1_957_G27mV_SNCovMat_cI1Q2.mtx'
+# vc.filein8 = 'S1_957_G27mV_SNCovMat_cQ1I2.mtx'
+# vc.filein9 = 'S1_957_G27mV_SNCovMat_cQ1Q2.mtx'
+# vc.filein10 = 'S1_957_G27mV_SNCovMat_cI1Q1.mtx'
+# vc.filein11 = 'S1_957_G27mV_SNCovMat_cI2Q2.mtx'
+# vc.load_and_go()
+# snd = sn.DoSNfits(vc)
+# LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=2)
+# headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
+# savemtx(savename, LnM, headtxt)
+# headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
+# savemtx(savename2, LnM2, headtxt2)
+#
+# savename = '958_G27mV_LogN.mtx'
+# savename2 = '958_G27mV_ineqSq.mtx'
+# vc.filein1 = 'S1_958_G27mV_SNCovMat_cI1I1.mtx'
+# vc.filein2 = 'S1_958_G27mV_SNCovMat_cQ1Q1.mtx'
+# vc.filein3 = 'S1_958_G27mV_SNCovMat_cI2I2.mtx'
+# vc.filein4 = 'S1_958_G27mV_SNCovMat_cQ2Q2.mtx'
+# vc.filein5 = 'S1_958_G27mV_SNV.mtx'
+# vc.filein6 = 'S1_958_G27mV_SNCovMat_cI1I2.mtx'
+# vc.filein7 = 'S1_958_G27mV_SNCovMat_cI1Q2.mtx'
+# vc.filein8 = 'S1_958_G27mV_SNCovMat_cQ1I2.mtx'
+# vc.filein9 = 'S1_958_G27mV_SNCovMat_cQ1Q2.mtx'
+# vc.filein10 = 'S1_958_G27mV_SNCovMat_cI1Q1.mtx'
+# vc.filein11 = 'S1_958_G27mV_SNCovMat_cI2Q2.mtx'
+# vc.load_and_go()
+# snd = sn.DoSNfits(vc, False)
+# LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=0.5)
+# headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
+# savemtx(savename, LnM, headtxt)
+# headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
+# savemtx(savename2, LnM2, headtxt2)
