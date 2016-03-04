@@ -301,6 +301,22 @@ def find_nearest(someArray, value):
     return idx
 
 
+def find_absPeak(someArray, range=5):
+    '''
+    finds within a short range around the center of
+    an array the peak/ dip value position
+    and returns value at the position.
+    1. abs(someArray)
+    2. crop someArray with the range
+    3. max(someArray)
+    assumes that the mean of someArray = 0
+    '''
+    Array = np.abs(someArray * 1.0)
+    A0 = int(len(Array)/2)  # A0 center pos (round down)
+    pos = np.argmax(Array[A0-range:A0+range+1])+A0-range
+    return someArray[pos]
+
+
 def fitfunc_old(G, Tn, T, vc):
     # def fitfunc(x, G, Tn, T, c):
     '''
