@@ -5,6 +5,7 @@ Extract degree of entanglement from the data files
 '''
 import numpy as np
 from scipy.constants import h, e
+from scipy.constants import Boltzmann as kB
 import SNfit as sn
 from parsers import savemtx, make_header
 
@@ -45,17 +46,19 @@ def get_sqIneq(vc, CovM):
     This is a strong indicator for the presence of entanglement
     '''
     # Photon numbers numbers at f1 and f2:
-    n1 = CovM[0, 0] + CovM[1, 1]
-    n2 = CovM[2, 2] + CovM[3, 3]
+    n1 = CovM[0, 0]*1.0 + CovM[1, 1]*1.0
+    n2 = CovM[2, 2]*1.0 + CovM[3, 3]*1.0
     # Photons detected to be TMS:
-    sqp1 = CovM[0, 2] - CovM[1, 3] + 1j*(CovM[0, 3] + CovM[1, 2])
-    # the amount of squeezing
+    sqp1 = CovM[0, 2]*1.0 - CovM[1, 3]*1.0 + 1.0*1j*(CovM[0, 3] + CovM[1, 2])
     squeezing = np.abs(sqp1) / ((n1 + n2)/2.0)
     # inequality equation:
     ineq = ((2.0*np.sqrt(vc.f1*vc.f2)+(n1+n2)) /
             (vc.f1*(2.0*n1+1.0) + vc.f2*(2.0*n2+1.0)))
-
-    return squeezing if (squeezing - ineq) > 0.0 else 0.0
+    if (squeezing - ineq) > 0.0:
+        if 1e-6 < get_LogNegNum(CovM):  # check if LogNeg is Breached
+            return squeezing
+        else:
+            return squeezing*-1
 
 
 def TwoModeSqueeze_inequality(f1, f2, n):
@@ -65,42 +68,47 @@ def TwoModeSqueeze_inequality(f1, f2, n):
     return ((2.0*np.sqrt(f1*f2)*(2*n)) / (f1*(2*n+1)+f2*(2*n+1)))
 
 
-def createCovMat(vc, snd, power1=0, Ibx=0):
+def createCovMat(vc, snd, power1=0, Ibx=0, useFit=False):
     ''' creates a covariance matrix
         for a selected power,
         (and Current bias currently the zero position)
-
-
     covM = np.array([[I1I1, I1Q1, I1I2, I1Q2],
                     [I1Q1, Q1Q1, Q1I2, Q1Q2],
                     [I1I2, Q1I2, I2I2, I2Q2],
                     [I1Q2, Q1Q2, I2Q2, Q2Q2]])
     return covM
-
     # Ibx = sn.find_nearest(vc.d3.lin, Ib)
     '''
     # directly load from the uncertainty normed data
-    I1I1 = vc.cvals['nI1I1'][power1, Ibx]
-    Q1Q1 = vc.cvals['nQ1Q1'][power1, Ibx]
-    I2I2 = vc.cvals['nI2I2'][power1, Ibx]
-    Q2Q2 = vc.cvals['nQ2Q2'][power1, Ibx]
-    I1I2 = vc.cvals['nI1I2'][power1, Ibx]
-    I1Q2 = vc.cvals['nI1Q2'][power1, Ibx]
-    Q1I2 = vc.cvals['nQ1I2'][power1, Ibx]
-    Q1Q2 = vc.cvals['nQ1Q2'][power1, Ibx]
-
-    I1Q1 = 0.0
+    I1I1 = vc.Varr[0, power1, Ibx]*1.0
+    Q1Q1 = vc.Varr[1, power1, Ibx]*1.0
+    I2I2 = vc.Varr[2, power1, Ibx]*1.0
+    Q2Q2 = vc.Varr[3, power1, Ibx]*1.0
+    I1I2 = vc.Varr[4, power1, Ibx]*1.0
+    I1Q2 = vc.Varr[5, power1, Ibx]*1.0
+    Q1I2 = vc.Varr[6, power1, Ibx]*1.0
+    Q1Q2 = vc.Varr[7, power1, Ibx]*1.0
+    I1Q1 = 0.0  # This data is ignored for now.
     I2Q2 = 0.0
 
-    pidx = power1
     # To convert to photon numbers at the input of the Hemt
-    g1 = snd.G1[pidx]*h*vc.f1*vc.B
-    g2 = snd.G2[pidx]*h*vc.f2*vc.B
-    g12 = np.sqrt(g1*g2)
-
-    # Added Noise Photons by the Amp (without zpf)
-    a1 = (snd.Pi1[pidx] - 0.5)/2.0
-    a2 = (snd.Pi2[pidx] - 0.5)/2.0
+    if useFit:
+        pidx = power1
+        g1 = snd.G1[pidx]*h*vc.f1*vc.B  # Norm. Factor
+        g2 = snd.G2[pidx]*h*vc.f2*vc.B
+        g12 = np.sqrt(g1*g2)
+        a1 = kB*snd.Tn1[pidx]/(2.0*h*vc.f1)  # Amp noise photons
+        a2 = kB*snd.Tn2[pidx]/(2.0*h*vc.f2)
+        n1 = snd.Pi1del[0]/2.0
+        n2 = snd.Pi2del[0]/2.0
+    else:
+        g1 = G1*h*f1*vc.B  # Norm. Factor
+        g2 = G2*h*f2*vc.B
+        g12 = np.sqrt(g1*g2)
+        a1 = kB*Tn1/(2.0*h*f1)  # Amp noise photons
+        a2 = kB*Tn2/(2.0*h*f2)
+        n1 = uPi1/2.0
+        n2 = uPi2/2.0
 
     # Create Covariance matrix (includes uncertainty from data selection)
     covM = np.array([[I1I1/g1-a1, I1Q1/g1, I1I2/g12, I1Q2/g12],
@@ -108,15 +116,12 @@ def createCovMat(vc, snd, power1=0, Ibx=0):
                     [I1I2/g12, Q1I2/g12, I2I2/g2-a2, I2Q2/g2],
                     [I1Q2/g12, Q1Q2/g12, I2Q2/g2, Q2Q2/g2-a2]])
 
-    # Add uncertainty from amplifier noise and the fit
-    # n1 = snd.Pi1del[0]/2.0
-    # n2 = snd.Pi2del[0]/2.0
+    # Add uncertainty in Photon numbers of identity elements
     # Uamp = np.array([[n1, 0, 0, 0],
     #                  [0, n1, 0, 0],
     #                  [0, 0, n2, 0],
     #                  [0, 0, 0, n2]])
     # covM = covM + Uamp
-
     return covM
 
 
@@ -140,71 +145,87 @@ def NMatrix(vc, snd, cpt=7, SnR=2):
 
 vc = sn.variable_carrier()
 vc.fifolder = 'sn_data//'
-vc.LP = 1.2
+# vc.LP = 1.2
+vc.LP = 1.9
 vc.Texp = 0.012
+SNR = 5
 
-# savename = '949_G0mV_LogN.mtx'
-# savename2 = '949_G0mV_ineqSq.mtx'
-# vc.filein1 = 'S1_949_G0mV_SN_PCovMat_cI1I1.mtx'
-# vc.filein2 = 'S1_949_G0mV_SN_PCovMat_cQ1Q1.mtx'
-# vc.filein3 = 'S1_949_G0mV_SN_PCovMat_cI2I2.mtx'
-# vc.filein4 = 'S1_949_G0mV_SN_PCovMat_cQ2Q2.mtx'
-# vc.filein5 = 'S1_949_G0mV_SN_PV.mtx'
-# vc.filein6 = 'S1_949_G0mV_SN_PCovMat_cI1I2.mtx'
-# vc.filein7 = 'S1_949_G0mV_SN_PCovMat_cI1Q2.mtx'
-# vc.filein8 = 'S1_949_G0mV_SN_PCovMat_cQ1I2.mtx'
-# vc.filein9 = 'S1_949_G0mV_SN_PCovMat_cQ1Q2.mtx'
-# vc.filein10 = 'S1_949_G0mV_SN_PCovMat_cI1Q1.mtx'
-# vc.filein11 = 'S1_949_G0mV_SN_PCovMat_cI2Q2.mtx'
-# vc.load_and_go()
-# snd = sn.DoSNfits(vc)
-# LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=2)
-# headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
-# savemtx(savename, LnM, headtxt)
-# headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
-# savemtx(savename2, LnM2, headtxt2)
-#
-# savename = '950_G0mV_LogN.mtx'
-# savename2 = '950_G0mV_ineqSq.mtx'
-# vc.filein1 = 'S1_950_G0mV_SN_PCovMat_cI1I1.mtx'
-# vc.filein2 = 'S1_950_G0mV_SN_PCovMat_cQ1Q1.mtx'
-# vc.filein3 = 'S1_950_G0mV_SN_PCovMat_cI2I2.mtx'
-# vc.filein4 = 'S1_950_G0mV_SN_PCovMat_cQ2Q2.mtx'
-# vc.filein5 = 'S1_950_G0mV_SN_PV.mtx'
-# vc.filein6 = 'S1_950_G0mV_SN_PCovMat_cI1I2.mtx'
-# vc.filein7 = 'S1_950_G0mV_SN_PCovMat_cI1Q2.mtx'
-# vc.filein8 = 'S1_950_G0mV_SN_PCovMat_cQ1I2.mtx'
-# vc.filein9 = 'S1_950_G0mV_SN_PCovMat_cQ1Q2.mtx'
-# vc.filein10 = 'S1_950_G0mV_SN_PCovMat_cI1Q1.mtx'
-# vc.filein11 = 'S1_950_G0mV_SN_PCovMat_cI2Q2_org.mtx'
-# vc.load_and_go()
-# snd = sn.DoSNfits(vc)
-# LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=2)
-# headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
-# savemtx(savename, LnM, headtxt)
-# headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
-# savemtx(savename2, LnM2, headtxt2)
-#
-# savename = '951_G27mV_LogN.mtx'
-# savename2 = '951_G27mV_ineqSq.mtx'
-# vc.filein1 = 'S1_951_G27mV_SN_PCovMat_cI1I1.mtx'
-# vc.filein2 = 'S1_951_G27mV_SN_PCovMat_cQ1Q1.mtx'
-# vc.filein3 = 'S1_951_G27mV_SN_PCovMat_cI2I2.mtx'
-# vc.filein4 = 'S1_951_G27mV_SN_PCovMat_cQ2Q2.mtx'
-# vc.filein5 = 'S1_951_G27mV_SN_PV.mtx'
-# vc.filein6 = 'S1_951_G27mV_SN_PCovMat_cI1I2.mtx'
-# vc.filein7 = 'S1_951_G27mV_SN_PCovMat_cI1Q2.mtx'
-# vc.filein8 = 'S1_951_G27mV_SN_PCovMat_cQ1I2.mtx'
-# vc.filein9 = 'S1_951_G27mV_SN_PCovMat_cQ1Q2.mtx'
-# vc.filein10 = 'S1_951_G27mV_SN_PCovMat_cI1Q1.mtx'
-# vc.filein11 = 'S1_951_G27mV_SN_PCovMat_cI2Q2_org.mtx'
-# vc.load_and_go()
-# snd = sn.DoSNfits(vc)
-# LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=2)
-# headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
-# savemtx(savename, LnM, headtxt)
-# headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
-# savemtx(savename2, LnM2, headtxt2)
+# Prev extracted data from 952_...
+f1 = 4.1e9
+f2 = 4.8e9
+G1 = 34009953   # Gain f1
+G2 = 48083380   #
+Tn1 = 3.737    # Noise Temp Amplifier (2K without filters)
+Tn2 = 3.046
+uG2 = 126124    # Uncertainty values
+uG2 = 268521
+uTn1 = 0.032
+uTn2 = 0.046
+uPi1 = 0.16  # resulting Photon uncertainty at Hemt input
+uPi2 = 0.20
+
+savename = '949_G0mV_LogN.mtx'
+savename2 = '949_G0mV_ineqSq.mtx'
+vc.filein1 = 'S1_949_G0mV_SN_PCovMat_cI1I1.mtx'
+vc.filein2 = 'S1_949_G0mV_SN_PCovMat_cQ1Q1.mtx'
+vc.filein3 = 'S1_949_G0mV_SN_PCovMat_cI2I2.mtx'
+vc.filein4 = 'S1_949_G0mV_SN_PCovMat_cQ2Q2.mtx'
+vc.filein5 = 'S1_949_G0mV_SN_PV.mtx'
+vc.filein6 = 'S1_949_G0mV_SN_PCovMat_cI1I2.mtx'
+vc.filein7 = 'S1_949_G0mV_SN_PCovMat_cI1Q2.mtx'
+vc.filein8 = 'S1_949_G0mV_SN_PCovMat_cQ1I2.mtx'
+vc.filein9 = 'S1_949_G0mV_SN_PCovMat_cQ1Q2.mtx'
+vc.filein10 = 'S1_949_G0mV_SN_PCovMat_cI1Q1.mtx'
+vc.filein11 = 'S1_949_G0mV_SN_PCovMat_cI2Q2.mtx'
+vc.load_and_go()
+snd = sn.DoSNfits(vc)
+LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=SNR)
+headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
+savemtx(savename, LnM, headtxt)
+headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
+savemtx(savename2, LnM2, headtxt2)
+
+savename = '950_G0mV_LogN.mtx'
+savename2 = '950_G0mV_ineqSq.mtx'
+vc.filein1 = 'S1_950_G0mV_SN_PCovMat_cI1I1.mtx'
+vc.filein2 = 'S1_950_G0mV_SN_PCovMat_cQ1Q1.mtx'
+vc.filein3 = 'S1_950_G0mV_SN_PCovMat_cI2I2.mtx'
+vc.filein4 = 'S1_950_G0mV_SN_PCovMat_cQ2Q2.mtx'
+vc.filein5 = 'S1_950_G0mV_SN_PV.mtx'
+vc.filein6 = 'S1_950_G0mV_SN_PCovMat_cI1I2.mtx'
+vc.filein7 = 'S1_950_G0mV_SN_PCovMat_cI1Q2.mtx'
+vc.filein8 = 'S1_950_G0mV_SN_PCovMat_cQ1I2.mtx'
+vc.filein9 = 'S1_950_G0mV_SN_PCovMat_cQ1Q2.mtx'
+vc.filein10 = 'S1_950_G0mV_SN_PCovMat_cI1Q1.mtx'
+vc.filein11 = 'S1_950_G0mV_SN_PCovMat_cI2Q2_org.mtx'
+vc.load_and_go()
+snd = sn.DoSNfits(vc)
+LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=SNR)
+headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
+savemtx(savename, LnM, headtxt)
+headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
+savemtx(savename2, LnM2, headtxt2)
+
+savename = '951_G27mV_LogN.mtx'
+savename2 = '951_G27mV_ineqSq.mtx'
+vc.filein1 = 'S1_951_G27mV_SN_PCovMat_cI1I1.mtx'
+vc.filein2 = 'S1_951_G27mV_SN_PCovMat_cQ1Q1.mtx'
+vc.filein3 = 'S1_951_G27mV_SN_PCovMat_cI2I2.mtx'
+vc.filein4 = 'S1_951_G27mV_SN_PCovMat_cQ2Q2.mtx'
+vc.filein5 = 'S1_951_G27mV_SN_PV.mtx'
+vc.filein6 = 'S1_951_G27mV_SN_PCovMat_cI1I2.mtx'
+vc.filein7 = 'S1_951_G27mV_SN_PCovMat_cI1Q2.mtx'
+vc.filein8 = 'S1_951_G27mV_SN_PCovMat_cQ1I2.mtx'
+vc.filein9 = 'S1_951_G27mV_SN_PCovMat_cQ1Q2.mtx'
+vc.filein10 = 'S1_951_G27mV_SN_PCovMat_cI1Q1.mtx'
+vc.filein11 = 'S1_951_G27mV_SN_PCovMat_cI2Q2_org.mtx'
+vc.load_and_go()
+snd = sn.DoSNfits(vc)
+LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=SNR)
+headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
+savemtx(savename, LnM, headtxt)
+headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
+savemtx(savename2, LnM2, headtxt2)
 
 savename = '952_G50mV_LogN.mtx'
 savename2 = '952_G50mV_ineqSq.mtx'
@@ -220,52 +241,115 @@ vc.filein9 = 'S1_952_G50mV_SN_P_I2correctedCovMat_cQ1Q2.mtx'
 vc.filein10 = 'S1_952_G50mV_SN_P_I2correctedCovMat_cI1Q1.mtx'
 vc.filein11 = 'S1_952_G50mV_SN_P_I2correctedCovMat_cI2Q2.mtx'
 vc.load_and_go()
-
-snd = sn.DoSNfits(vc, True)
-LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=2)
+snd = sn.DoSNfits(vc, False)
+LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=SNR)
 headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
 savemtx(savename, LnM, headtxt)
 headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
 savemtx(savename2, LnM2, headtxt2)
 
-# savename = '957_G27mV_LogN.mtx'
-# savename2 = '957_G27mV_ineqSq.mtx'
-# vc.filein1 = 'S1_957_G27mV_SNCovMat_cI1I1.mtx'
-# vc.filein2 = 'S1_957_G27mV_SNCovMat_cQ1Q1.mtx'
-# vc.filein3 = 'S1_957_G27mV_SNCovMat_cI2I2.mtx'
-# vc.filein4 = 'S1_957_G27mV_SNCovMat_cQ2Q2.mtx'
-# vc.filein5 = 'S1_957_G27mV_SNV.mtx'
-# vc.filein6 = 'S1_957_G27mV_SNCovMat_cI1I2.mtx'
-# vc.filein7 = 'S1_957_G27mV_SNCovMat_cI1Q2.mtx'
-# vc.filein8 = 'S1_957_G27mV_SNCovMat_cQ1I2.mtx'
-# vc.filein9 = 'S1_957_G27mV_SNCovMat_cQ1Q2.mtx'
-# vc.filein10 = 'S1_957_G27mV_SNCovMat_cI1Q1.mtx'
-# vc.filein11 = 'S1_957_G27mV_SNCovMat_cI2Q2.mtx'
-# vc.load_and_go()
-# snd = sn.DoSNfits(vc)
-# LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=2)
-# headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
-# savemtx(savename, LnM, headtxt)
-# headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
-# savemtx(savename2, LnM2, headtxt2)
-#
-# savename = '958_G27mV_LogN.mtx'
-# savename2 = '958_G27mV_ineqSq.mtx'
-# vc.filein1 = 'S1_958_G27mV_SNCovMat_cI1I1.mtx'
-# vc.filein2 = 'S1_958_G27mV_SNCovMat_cQ1Q1.mtx'
-# vc.filein3 = 'S1_958_G27mV_SNCovMat_cI2I2.mtx'
-# vc.filein4 = 'S1_958_G27mV_SNCovMat_cQ2Q2.mtx'
-# vc.filein5 = 'S1_958_G27mV_SNV.mtx'
-# vc.filein6 = 'S1_958_G27mV_SNCovMat_cI1I2.mtx'
-# vc.filein7 = 'S1_958_G27mV_SNCovMat_cI1Q2.mtx'
-# vc.filein8 = 'S1_958_G27mV_SNCovMat_cQ1I2.mtx'
-# vc.filein9 = 'S1_958_G27mV_SNCovMat_cQ1Q2.mtx'
-# vc.filein10 = 'S1_958_G27mV_SNCovMat_cI1Q1.mtx'
-# vc.filein11 = 'S1_958_G27mV_SNCovMat_cI2Q2.mtx'
-# vc.load_and_go()
-# snd = sn.DoSNfits(vc, False)
-# LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=0.5)
-# headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
-# savemtx(savename, LnM, headtxt)
-# headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
-# savemtx(savename2, LnM2, headtxt2)
+savename = '957_G27mV_LogN.mtx'
+savename2 = '957_G27mV_ineqSq.mtx'
+vc.filein1 = 'S1_957_G27mV_SNCovMat_cI1I1.mtx'
+vc.filein2 = 'S1_957_G27mV_SNCovMat_cQ1Q1.mtx'
+vc.filein3 = 'S1_957_G27mV_SNCovMat_cI2I2.mtx'
+vc.filein4 = 'S1_957_G27mV_SNCovMat_cQ2Q2.mtx'
+vc.filein5 = 'S1_957_G27mV_SNV.mtx'
+vc.filein6 = 'S1_957_G27mV_SNCovMat_cI1I2.mtx'
+vc.filein7 = 'S1_957_G27mV_SNCovMat_cI1Q2.mtx'
+vc.filein8 = 'S1_957_G27mV_SNCovMat_cQ1I2.mtx'
+vc.filein9 = 'S1_957_G27mV_SNCovMat_cQ1Q2.mtx'
+vc.filein10 = 'S1_957_G27mV_SNCovMat_cI1Q1.mtx'
+vc.filein11 = 'S1_957_G27mV_SNCovMat_cI2Q2.mtx'
+vc.load_and_go()
+snd = sn.DoSNfits(vc)
+LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=SNR)
+headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
+savemtx(savename, LnM, headtxt)
+headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
+savemtx(savename2, LnM2, headtxt2)
+
+savename = '958_G27mV_LogN.mtx'
+savename2 = '958_G27mV_ineqSq.mtx'
+vc.filein1 = 'S1_958_G27mV_SNCovMat_cI1I1.mtx'
+vc.filein2 = 'S1_958_G27mV_SNCovMat_cQ1Q1.mtx'
+vc.filein3 = 'S1_958_G27mV_SNCovMat_cI2I2.mtx'
+vc.filein4 = 'S1_958_G27mV_SNCovMat_cQ2Q2.mtx'
+vc.filein5 = 'S1_958_G27mV_SNV.mtx'
+vc.filein6 = 'S1_958_G27mV_SNCovMat_cI1I2.mtx'
+vc.filein7 = 'S1_958_G27mV_SNCovMat_cI1Q2.mtx'
+vc.filein8 = 'S1_958_G27mV_SNCovMat_cQ1I2.mtx'
+vc.filein9 = 'S1_958_G27mV_SNCovMat_cQ1Q2.mtx'
+vc.filein10 = 'S1_958_G27mV_SNCovMat_cI1Q1.mtx'
+vc.filein11 = 'S1_958_G27mV_SNCovMat_cI2Q2.mtx'
+vc.load_and_go()
+snd = sn.DoSNfits(vc, False)
+LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=SNR)
+headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
+savemtx(savename, LnM, headtxt)
+headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
+savemtx(savename2, LnM2, headtxt2)
+
+
+# Converting Power sweep traces aswell using global G1,G2, .. data
+# -----------------------------------------------------------------
+
+savename = '954_G50mV_LogN.mtx'
+savename2 = '954_G50mV_ineqSq.mtx'
+vc.filein1 = 'S1_954_G50mV_PowerSweepCovMat_cI1I1.mtx'
+vc.filein2 = 'S1_954_G50mV_PowerSweepCovMat_cQ1Q1.mtx'
+vc.filein3 = 'S1_954_G50mV_PowerSweepCovMat_cI2I2.mtx'
+vc.filein4 = 'S1_954_G50mV_PowerSweepCovMat_cQ2Q2.mtx'
+vc.filein5 = 'S1_954_G50mV_PowerSweepV.mtx'
+vc.filein6 = 'S1_954_G50mV_PowerSweepCovMat_cI1I2.mtx'
+vc.filein7 = 'S1_954_G50mV_PowerSweepCovMat_cI1Q2.mtx'
+vc.filein8 = 'S1_954_G50mV_PowerSweepCovMat_cQ1I2.mtx'
+vc.filein9 = 'S1_954_G50mV_PowerSweepCovMat_cQ1Q2.mtx'
+vc.filein10 = 'S1_954_G50mV_PowerSweepCovMat_cI1Q1.mtx'
+vc.filein11 = 'S1_954_G50mV_PowerSweepCovMat_cI2Q2.mtx'
+vc.load_and_go()
+LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=SNR)
+headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
+savemtx(savename, LnM, headtxt)
+headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
+savemtx(savename2, LnM2, headtxt2)
+
+savename = '955_G50mV_LogN.mtx'
+savename2 = '955_G50mV_ineqSq.mtx'
+vc.filein1 = 'S1_955_G50mV_PowerSweepCovMat_cI1I1.mtx'
+vc.filein2 = 'S1_955_G50mV_PowerSweepCovMat_cQ1Q1.mtx'
+vc.filein3 = 'S1_955_G50mV_PowerSweepCovMat_cI2I2.mtx'
+vc.filein4 = 'S1_955_G50mV_PowerSweepCovMat_cQ2Q2.mtx'
+vc.filein5 = 'S1_955_G50mV_PowerSweepV.mtx'
+vc.filein6 = 'S1_955_G50mV_PowerSweepCovMat_cI1I2.mtx'
+vc.filein7 = 'S1_955_G50mV_PowerSweepCovMat_cI1Q2.mtx'
+vc.filein8 = 'S1_955_G50mV_PowerSweepCovMat_cQ1I2.mtx'
+vc.filein9 = 'S1_955_G50mV_PowerSweepCovMat_cQ1Q2.mtx'
+vc.filein10 = 'S1_955_G50mV_PowerSweepCovMat_cI1Q1.mtx'
+vc.filein11 = 'S1_955_G50mV_PowerSweepCovMat_cI2Q2.mtx'
+vc.load_and_go()
+LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=SNR)
+headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
+savemtx(savename, LnM, headtxt)
+headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
+savemtx(savename2, LnM2, headtxt2)
+
+savename = '956_G27mV_LogN.mtx'
+savename2 = '956_G27mV_ineqSq.mtx'
+vc.filein1 = 'S1_956_G27mV_PowerSweepCovMat_cI1I1.mtx'
+vc.filein2 = 'S1_956_G27mV_PowerSweepCovMat_cQ1Q1.mtx'
+vc.filein3 = 'S1_956_G27mV_PowerSweepCovMat_cI2I2.mtx'
+vc.filein4 = 'S1_956_G27mV_PowerSweepCovMat_cQ2Q2.mtx'
+vc.filein5 = 'S1_956_G27mV_PowerSweepV.mtx'
+vc.filein6 = 'S1_956_G27mV_PowerSweepCovMat_cI1I2.mtx'
+vc.filein7 = 'S1_956_G27mV_PowerSweepCovMat_cI1Q2.mtx'
+vc.filein8 = 'S1_956_G27mV_PowerSweepCovMat_cQ1I2.mtx'
+vc.filein9 = 'S1_956_G27mV_PowerSweepCovMat_cQ1Q2.mtx'
+vc.filein10 = 'S1_956_G27mV_PowerSweepCovMat_cI1Q1.mtx'
+vc.filein11 = 'S1_956_G27mV_PowerSweepCovMat_cI2Q2.mtx'
+vc.load_and_go()
+LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=SNR)
+headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
+savemtx(savename, LnM, headtxt)
+headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
+savemtx(savename2, LnM2, headtxt2)
