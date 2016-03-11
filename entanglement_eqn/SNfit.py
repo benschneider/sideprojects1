@@ -13,6 +13,7 @@ from scipy.constants import h, e, c  # , pi
 from scipy.ndimage.filters import gaussian_filter1d
 from lmfit import minimize, Parameters, report_fit  # , Parameter
 from matplotlib.pyplot import plot, hold, figure, show, title, ion, close
+import Gnuplot as gp
 
 
 '''
@@ -430,9 +431,12 @@ def get_residuals(pidx, vc, params, digi='D1'):
         SNf = fitfun2(params, vc, digi='D2')
 
     res = np.array(np.abs((data - SNf)/factor)) + 1
-    p = np.abs(np.min(data)-np.min(SNf))/factor + 1
-    # scpos = vc.Ib0 + 1
+    # p = np.abs(np.min(data)-np.min(SNf))/factor + 1
+    # scpos = vc.Ib0 # + 1
     # p = np.abs(data[scpos] - SNf[scpos])/factor + 1
+    d0 = np.mean(np.sort(data)[:5])/factor
+    d1 = np.mean(np.sort(SNf)[:5])/factor
+    p = np.abs(d0-d1) + 1
     return res, p
 
 
@@ -445,7 +449,7 @@ def bigstuff(params, vc, pidx):
     snd1 = cropTrace(res1, vc)
     snd2 = cropTrace(res2, vc)
 
-    return (abs(snd1) * abs(snd2) * p1 * p2 - 1.0)  # + (p1 + p2 - 2)
+    return (abs(snd1) * abs(snd2) * p1 * p2 - 1.0)
 
 
 def DoSNfits(vc, plotFit=False):
@@ -484,7 +488,7 @@ def DoSNfits(vc, plotFit=False):
     vc.load_and_go()
     vc.calc_diff_resistance()
     # create crop vector for the fitting
-    crop_within = find_nearest(vc.I, -2.0e-6), find_nearest(vc.I, 2.0e-6)
+    crop_within = find_nearest(vc.I, -7.0e-6), find_nearest(vc.I, 7.0e-6)
     # crop_within = find_nearest(vc.I, -0.0), find_nearest(vc.I, 0.0)
     # crop_within = find_nearest(vc.I, -0.4e-6), find_nearest(vc.I, 0.5e-6)
     crop_outside = find_nearest(vc.I, -19e-6), find_nearest(vc.I, 19e-6)
@@ -497,8 +501,8 @@ def DoSNfits(vc, plotFit=False):
     params.add('G2', value=4.8e7, vary=True, min=1e7, max=1e8)
     # params.add('T1', value=0.05, vary=False, min=0.01, max=0.25)
     # params.add('T2', value=0.05, vary=False, min=0.01, max=0.25)
-    params.add('T', value=vc.Texp, vary=True, min=0.001, max=0.050)
-    params.add('Tz', value=vc.Texp, vary=True, min=0.001, max=0.050)
+    params.add('T', value=vc.Texp, vary=False, min=0.001, max=0.050)
+    params.add('Tz', value=vc.Texp, vary=False, min=0.001, max=0.050)
     for pidx in range(vc.cPD1.shape[0]):
         '''
         scales Voltage_trace[selected power] to Volts
@@ -512,7 +516,7 @@ def DoSNfits(vc, plotFit=False):
         result = minimize(ministuff, result.params, args=(vc, pidx, 'D2'))
 
         # now fit all of them together:
-        result.params['T'].vary = True
+        # result.params['T'].vary = True
         result = minimize(bigstuff, result.params, args=(vc, pidx))
         print 'RF power', vc.d2.lin[pidx]
         print report_fit(result)
