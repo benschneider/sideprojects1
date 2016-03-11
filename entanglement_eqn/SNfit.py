@@ -145,114 +145,76 @@ class variable_carrier():
         else:
             self.dIVlp = abs(self.dIV)
 
-    def make_cvals(self, cpt=5, snr=3):
+    def make_cvals(self, cpt=5, snr=2):
         '''
         Using this function to obtain the amount of noise present
         in the background while ignoring the regions where the cross corr...
         are expected (5pt around the zero lags position).
-
-        this function calculates the uncertainty values in the given cross corr
-
-        denotation for dict key values beginning with:
-            r* for raw data directly extracted
-            u* for uncertainty values calculated
-            n* for normalized values (considering uncertainty worst values)
-        what is does:
-        1. create dict keys raw data values at lags0
-        2. create zero arrays in dictionary
-        3. fill those zero arrays with corresponding uncertainty values
-        4. calculate norm values and store them in the dict
         '''
-        r1i = self.cvals['rI1I1'] = self.I1I1[self.lags0, :, :]
-        r1q = self.cvals['rQ1Q1'] = self.Q1Q1[self.lags0, :, :]
-        r2i = self.cvals['rI2I2'] = self.I2I2[self.lags0, :, :]
-        r2q = self.cvals['rQ2Q2'] = self.Q2Q2[self.lags0, :, :]
-        self.cvals['rI1I2'] = self.I1I2[self.lags0, :, :]
-        self.cvals['rI1Q2'] = self.I1Q2[self.lags0, :, :]
-        self.cvals['rQ1I2'] = self.Q1I2[self.lags0, :, :]
-        self.cvals['rQ1Q2'] = self.Q1Q2[self.lags0, :, :]
-        self.cvals['uI1I1'] = np.zeros([self.d2.pt, self.d3.pt])
-        self.cvals['uQ1Q1'] = np.zeros([self.d2.pt, self.d3.pt])
-        self.cvals['uI2I2'] = np.zeros([self.d2.pt, self.d3.pt])
-        self.cvals['uQ2Q2'] = np.zeros([self.d2.pt, self.d3.pt])
-        self.cvals['uI1I2'] = np.zeros([self.d2.pt, self.d3.pt])
-        self.cvals['uI1Q2'] = np.zeros([self.d2.pt, self.d3.pt])
-        self.cvals['uQ1I2'] = np.zeros([self.d2.pt, self.d3.pt])
-        self.cvals['uQ1Q2'] = np.zeros([self.d2.pt, self.d3.pt])
-        self.cvals['nI1I1'] = np.zeros([self.d2.pt, self.d3.pt])
-        self.cvals['nQ1Q1'] = np.zeros([self.d2.pt, self.d3.pt])
-        self.cvals['nI2I2'] = np.zeros([self.d2.pt, self.d3.pt])
-        self.cvals['nQ2Q2'] = np.zeros([self.d2.pt, self.d3.pt])
-        self.cvals['nI1I2'] = np.zeros([self.d2.pt, self.d3.pt])
-        self.cvals['nI1Q2'] = np.zeros([self.d2.pt, self.d3.pt])
-        self.cvals['nQ1I2'] = np.zeros([self.d2.pt, self.d3.pt])
-        self.cvals['nQ1Q2'] = np.zeros([self.d2.pt, self.d3.pt])
-
+        self.Sarr = np.zeros([8, self.d2.pt, self.d3.pt])
+        self.Narr = np.zeros([8, self.d2.pt, self.d3.pt])
+        self.Varr = np.zeros([8, self.d2.pt, self.d3.pt])
+        S = np.zeros(8)
+        N = np.zeros(8)
+        V = np.zeros(8)
         for x2 in range(self.d2.pt):
             for x3 in range(self.d3.pt):
-                # fill uncertainty values
-                u1i = self.calU(self.I1I1[:, x2, x3], self.lags0, cpt)
-                u1q = self.calU(self.Q1Q1[:, x2, x3], self.lags0, cpt)
-                u2i = self.calU(self.I2I2[:, x2, x3], self.lags0, cpt)
-                u2q = self.calU(self.Q2Q2[:, x2, x3], self.lags0, cpt)
-                uii = self.calU(self.I1I2[:, x2, x3], self.lags0, cpt)
-                uiq = self.calU(self.I1Q2[:, x2, x3], self.lags0, cpt)
-                uqi = self.calU(self.Q1I2[:, x2, x3], self.lags0, cpt)
-                uqq = self.calU(self.Q1Q2[:, x2, x3], self.lags0, cpt)
-                rii = self.cvals['rI1I2'][x2, x3]
-                riq = self.cvals['rI1Q2'][x2, x3]
-                rqi = self.cvals['rQ1I2'][x2, x3]
-                rqq = self.cvals['rQ1Q2'][x2, x3]
-                self.cvals['uI1I1'][x2, x3] = u1i
-                self.cvals['uQ1Q1'][x2, x3] = u1q
-                self.cvals['uI2I2'][x2, x3] = u2i
-                self.cvals['uQ2Q2'][x2, x3] = u2q
-                self.cvals['uI1I2'][x2, x3] = uii
-                self.cvals['uI1Q2'][x2, x3] = uiq
-                self.cvals['uQ1I2'][x2, x3] = uqi
-                self.cvals['uQ1Q2'][x2, x3] = uqq
-                # calculate the normed values and store them in the matrix
-                self.cvals['nI1I1'][x2, x3] = r1i[x2, x3]  # +u1i/2
-                self.cvals['nQ1Q1'][x2, x3] = r1q[x2, x3]  # +u1q/2
-                self.cvals['nI2I2'][x2, x3] = r2i[x2, x3]  # +u2i/2
-                self.cvals['nQ2Q2'][x2, x3] = r2q[x2, x3]  # +u2q/2
-                # that error is already added from the shot noise values
-                self.cvals['nI1I2'][x2, x3] = rii
-                # +uii/2 if rii < 0 else rii-uii/2
-                self.cvals['nI1Q2'][x2, x3] = riq
-                # +uiq/2 if riq < 0 else riq-uiq/2
-                self.cvals['nQ1I2'][x2, x3] = rqi
-                # +uqi/2 if rqi < 0 else rqi-uqi/2
-                self.cvals['nQ1Q2'][x2, x3] = rqq
-                # +uqq/2 if rqq < 0 else rqq-uqq/2
-                # 0 if the requested SnR ratio is not met
-                if abs(rii) < snr * uii / 2.0:
-                    self.cvals['nI1I2'][x2, x3] = 0.0
-                if abs(riq) < snr * uiq / 2.0:
-                    self.cvals['nI1Q2'][x2, x3] = 0.0
-                if abs(rqi) < snr * uqi / 2.0:
-                    self.cvals['nQ1I2'][x2, x3] = 0.0
-                if abs(rqq) < snr * uqq / 2.0:
-                    self.cvals['nQ1Q2'][x2, x3] = 0.0
+                S[0], N[0] = self.get_SNR(self.I1I1[:, x2, x3], cpt)
+                S[1], N[1] = self.get_SNR(self.Q1Q1[:, x2, x3], cpt)
+                S[2], N[2] = self.get_SNR(self.I2I2[:, x2, x3], cpt)
+                S[3], N[3] = self.get_SNR(self.Q2Q2[:, x2, x3], cpt)
+                V[:4] = S[:4]
+                S[4], N[4] = self.get_SNR(self.I1I2[:, x2, x3], cpt)
+                S[5], N[5] = self.get_SNR(self.I1Q2[:, x2, x3], cpt)
+                S[6], N[6] = self.get_SNR(self.Q1I2[:, x2, x3], cpt)
+                S[7], N[7] = self.get_SNR(self.Q1Q2[:, x2, x3], cpt)
+                V[4] = S[4] if abs(S[4]) > snr * N[4] else 0.0
+                V[5] = S[5] if abs(S[5]) > snr * N[5] else 0.0
+                V[6] = S[6] if abs(S[6]) > snr * N[6] else 0.0
+                V[7] = S[7] if abs(S[7]) > snr * N[7] else 0.0
+                self.Sarr[:, x2, x3] = S
+                self.Narr[:, x2, x3] = N
+                self.Varr[:, x2, x3] = V
+
+    def get_SNR(self, array, range):
+        pos0 = find_absPeakPos(array, range)
+        signal = array[pos0]
+        noise = self.calU(array, pos0, range)
+        return signal, noise
 
     def calU(self, z1, lags0, cpt):
         '''
         This function removes from an array
         cpt points around the lag0 position
         and returns the square root variance of this new array.
-
         Get background noise value of the cross correlation data.
         '''
         z2 = z1[:lags0 - cpt] * 1.0
         z3 = z1[lags0 + cpt:] * 1.0
-        return abs(np.sqrt(np.var(np.concatenate([z2, z3]))))
+        return abs(np.sqrt(np.var(np.concatenate([z2, z3]))))/2.0
 
 
 '''
-                    2 Classes END
 Beginning of the functions used for fitting and such
 -------------------------------------------------------
 '''
+
+
+def find_absPeakPos(someArray, range=5):
+    '''
+    finds within a short range around the center of
+    an array the peak/ dip value position
+    and returns value at the position.
+    1. abs(someArray)
+    2. crop someArray with the range
+    3. max(someArray)
+    assumes that the mean of someArray = 0
+    '''
+    Array = np.abs(someArray * 1.0)
+    A0 = int(len(Array)/2)  # A0 center pos (round down)
+    pos = np.argmax(Array[A0-range:A0+range+1])+A0-range
+    # return someArray[pos]
+    return pos
 
 
 def xderiv(d2MAT, dx=1.0, axis=0):
@@ -300,22 +262,6 @@ def find_nearest(someArray, value):
     '''
     idx = abs(someArray - value).argmin()
     return idx
-
-
-def find_absPeak(someArray, range=5):
-    '''
-    finds within a short range around the center of
-    an array the peak/ dip value position
-    and returns value at the position.
-    1. abs(someArray)
-    2. crop someArray with the range
-    3. max(someArray)
-    assumes that the mean of someArray = 0
-    '''
-    Array = np.abs(someArray * 1.0)
-    A0 = int(len(Array)/2)  # A0 center pos (round down)
-    pos = np.argmax(Array[A0-range:A0+range+1])+A0-range
-    return someArray[pos]
 
 
 def fitfunc_old(G, Tn, T, vc):
