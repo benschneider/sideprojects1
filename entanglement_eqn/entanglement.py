@@ -293,7 +293,7 @@ savemtx(savename2, LnM2, headtxt2)
 
 # Converting Power sweep traces aswell using global G1,G2, .. data
 # -----------------------------------------------------------------
-
+SNR = 2
 savename = '954_G50mV_LogN.mtx'
 savename2 = '954_G50mV_ineqSq.mtx'
 vc.filein1 = 'S1_954_G50mV_PowerSweepCovMat_cI1I1.mtx'
@@ -309,9 +309,9 @@ vc.filein10 = 'S1_954_G50mV_PowerSweepCovMat_cI1Q1.mtx'
 vc.filein11 = 'S1_954_G50mV_PowerSweepCovMat_cI2Q2.mtx'
 vc.load_and_go()
 LnM, LnM2 = NMatrix(vc, snd, cpt=6, SnR=SNR)
-headtxt = make_header(vc.d3, vc.d2, vc.d1, meas_data='Log-Negativity')
+headtxt = make_header(vc.d3I, vc.d2, vc.d1, meas_data='Log-Negativity')
 savemtx(savename, LnM, headtxt)
-headtxt2 = make_header(vc.d3, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
+headtxt2 = make_header(vc.d3I, vc.d2, vc.d1, meas_data='Squeezing-Ineq')
 savemtx(savename2, LnM2, headtxt2)
 
 savename = '955_G50mV_LogN.mtx'
