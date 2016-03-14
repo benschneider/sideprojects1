@@ -99,7 +99,7 @@ class variable_carrier():
         Loads the data defined in self.filein1 ..
         This loads the shotnoise relevant data files
         '''
-        (self.I1I1, d3, self.d2, self.d1, self.dz) = loadmtx(
+        (self.I1I1, self.d3I, self.d2, self.d1, self.dz) = loadmtx(
             self.fifolder + self.filein1)
         self.Q1Q1, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein2)
         self.I2I2, d3, d2, d1, dz = loadmtx(self.fifolder + self.filein3)
