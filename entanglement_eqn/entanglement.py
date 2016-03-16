@@ -55,10 +55,13 @@ def get_sqIneq(vc, CovM):
     ineq = ((2.0*np.sqrt(vc.f1*vc.f2)+(n1+n2)) /
             (vc.f1*(2.0*n1+1.0) + vc.f2*(2.0*n2+1.0)))
     if (squeezing - ineq) > 0.0:
-        if 1e-6 < get_LogNegNum(CovM):  # check if LogNeg is Breached
-            return squeezing
-        else:
-            return squeezing*-1
+        return squeezing
+        # if 1e-6 < get_LogNegNum(CovM):  # check if LogNeg is Breached
+        #     return squeezing
+        # else:
+        #     return squeezing*-1
+    else:
+        return 0.0
 
 
 def TwoModeSqueeze_inequality(f1, f2, n):
@@ -99,16 +102,16 @@ def createCovMat(vc, snd, power1=0, Ibx=0, useFit=False):
         g12 = np.sqrt(g1*g2)
         a1 = kB*snd.Tn1[pidx]/(2.0*h*vc.f1)  # Amp noise photons
         a2 = kB*snd.Tn2[pidx]/(2.0*h*vc.f2)
-        n1 = snd.Pi1del[0]/2.0
-        n2 = snd.Pi2del[0]/2.0
+        # n1 = snd.Pi1del[0]/2.0
+        # n2 = snd.Pi2del[0]/2.0
     else:
         g1 = G1*h*f1*vc.B  # Norm. Factor
         g2 = G2*h*f2*vc.B
         g12 = np.sqrt(g1*g2)
         a1 = kB*Tn1/(2.0*h*f1)  # Amp noise photons
         a2 = kB*Tn2/(2.0*h*f2)
-        n1 = uPi1/2.0
-        n2 = uPi2/2.0
+        # n1 = uPi1/2.0
+        # n2 = uPi2/2.0
 
     # Create Covariance matrix (includes uncertainty from data selection)
     covM = np.array([[I1I1/g1-a1, I1Q1/g1, I1I2/g12, I1Q2/g12],
@@ -134,11 +137,14 @@ def NMatrix(vc, snd, cpt=7, SnR=2):
     LnM2 = np.zeros([1, vc.d2.pt, vc.d3.pt])
     for ii in range(vc.d2.pt):
         for jj in range(vc.d3.pt):
+            a = 1.0
             CovM = createCovMat(vc, snd, ii, jj)
             N = get_LogNegNum(CovM)
             Nsq = get_sqIneq(vc, CovM)
-            LnM[0, ii, jj] = N
-            LnM2[0, ii, jj] = Nsq
+            if N == 0 or Nsq == 0.0:
+                a = -1.0
+            LnM[0, ii, jj] = N*a
+            LnM2[0, ii, jj] = Nsq*a
 
     return LnM, LnM2
 
@@ -146,9 +152,9 @@ def NMatrix(vc, snd, cpt=7, SnR=2):
 vc = sn.variable_carrier()
 vc.fifolder = 'sn_data//'
 # vc.LP = 1.2
-vc.LP = 1.9
+vc.LP = 2.9
 vc.Texp = 0.012
-SNR = 5
+SNR = 4.0
 
 # Prev extracted data from 952_...
 f1 = 4.1e9
