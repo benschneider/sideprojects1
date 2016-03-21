@@ -71,6 +71,7 @@ def extractIrIcR(line, d1):
     R = np.mean(line[IrIdx[:]])
     return Ir, Ic, R
 
+
 for ii in range(d2.pt):
     line = np.array(d1mat[ii])
     Ir, Ic, R = extractIrIcR(line, d1)
