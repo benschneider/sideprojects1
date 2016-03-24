@@ -1,71 +1,92 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from numpy import pi
+from numpy import pi, sin, cos
 from scipy.constants import h, e
 from scipy.constants import Boltzmann as k
 import Gnuplot as gp
 
 
-N = 20000
-T = 1e-11
-Tx = np.linspace(0, N*T, N)
-s1 = 1  # Test signal stength
-s2 = 1  # Carrier signal strength
-s0 = 1
+N = int(1e5)
+T = 1e-6  # step size
+t = np.linspace(0, N*T, N)  # time
+fstep = 1.0/(N*T)
 
-f1 = 5e9  # Test signal freq
-f2 = 5.2e9  # noise signal
-f0 = f1-187e6  # Mixing frequency
+s1 = 1.0
+s2 = 0.0
+
+f1 = 1000
+Lo = 187
+f2 = f1 + 2*Lo
 phi = 0
 
-sig1 = s1*np.sin(2*pi*f1*Tx+phi)
-sig2 = s2*np.sin(2*pi*f2*Tx)
 
-sig0a = s0*np.sin(2*pi*f0*Tx)
-sig0b = s0*np.cos(2*pi*f0*Tx)
-
-Isig = sig1*sig0a
-Qsig = sig1*sig0b
-
-plt.figure()
-plt.plot(Tx, sig1)
-plt.figure()
-plt.plot(Tx, sig2)
-plt.figure()
-plt.plot(Tx, Isig)
-plt.plot(Tx, Qsig)
-# Func. 
-# mixed2 = mixed + carrier + noisesig
-Fourier = np.fft.fft(Isig)
-Freq = np.fft.fftfreq(N, d=T)
-plt.figure()
-plt.plot(Freq, np.abs(Fourier)/(N-1))
+def digi(signal, f1):
+    I = signal*sin(2.0*pi*(f1+Lo)*t)
+    Q = signal*sin(2.0*pi*(f1+Lo)*t+pi/2.0)
+    return I, Q
 
 
-# Filter above 200MHz
-LP = int(1/(500e6*T))
-LPfft = Fourier[N/2-LP:N/2+LP]
-LPfreq = Freq[N/2-LP:N/2+LP]
-plt.figure()
-plt.plot(LPTx, np.abs(LPfft))
+sig1 = s1*sin(2*pi*f1*t+phi)
+sig2 = s2*sin(2*pi*f2*t)
+signal = sig1 + sig2
 
-iFourier = np.fft.ifft(LPfft)
-plt.figure()
-plt.plot(LPTx, abs(iFourier))
+Isig, Qsig = digi(signal, f1)
+
+fftI = np.fft.fftshift(np.fft.fft(Isig))
+fftQ = np.fft.fftshift(np.fft.fft(Isig))
+freq = np.fft.fftshift(np.fft.fftfreq(N, d=T))
 
 
-resultmat = np.zeros([N, 2])
-resultmat[:, 0] = Freq
-resultmat[:, 1] = np.abs(Fourier)/(N-1)
-#resultmat[:, 2] = np.abs(iFourier)/(N-1)
-np.savetxt('test.dat', resultmat, delimiter='\t')
+def LPfft(signal, lpfreq, T):
+    Nlp = int(lpfreq*len(signal)*T)
+    fftlp = np.fft.fftshift(np.fft.fft(Isig))
+    fftlp[0:(N/2-Nlp)] = 0
+    fftlp[(N/2+Nlp):-1] = 0
+    return fftlp
+
+
+plt.close('all')
+plt.ion()
+plt.figure(1)
+plt.plot(t, sig1)
+plt.title('Sig1')
+plt.figure(2)
+plt.plot(t, sig2)
+plt.title('Sig2')
+plt.figure(3)
+plt.plot(t, Isig)
+plt.title('Isig')
+plt.figure(4)
+plt.plot(t, Qsig)
+plt.title('Qsig')
+plt.figure(5)
+plt.plot(freq, np.abs(fftI)/(N-1))
+plt.title('absfftI')
+plt.figure(6)
+plt.plot(freq, np.abs(fftQ)/(N-1))
+plt.title('absfftQ')
+plt.figure(7)
+lp = LPfft(Isig, T, 240)
+plt.plot(freq, np.abs(lp)/(N-1))
+plt.plot(freq, np.angle(lp))
+plt.title('lpfftI')
+plt.figure(8)
+plt.plot(t, np.fft.ifft(lp))
+plt.show()
+
+
+# resultmat = np.zeros([N, 2])
+# resultmat[:, 0] = Freq
+# resultmat[:, 1] = np.abs(Fourier)/(N-1)
+# resultmat[:, 2] = np.abs(iFourier)/(N-1)
+# np.savetxt('test.dat', resultmat, delimiter='\t')
 # g1 = gp.Gnuplot(persist=1, debug=1)
 # g1("plot 'test.dat' u 1:2 w l")
 # g1("unset key")
 # g1("replot")
 
-#z = 1000
-#resultmat = np.zeros([z, 2])
-#resultmat[:, 0] = np.linspace(-10e-6, 10e-6, z)
-#for ii, i in enumerate(resultmat[:, 0]):
+# z = 1000
+# resultmat = np.zeros([z, 2])
+# resultmat[:, 0] = np.linspace(-10e-6, 10e-6, z)
+# for ii, i in enumerate(resultmat[:, 0]):
 #    resultmat[ii, 1] = func(i)

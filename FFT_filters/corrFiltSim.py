@@ -17,17 +17,15 @@ from time import time
 
 lags = 25
 points = int(1e4)
-triggers = 100
+triggers = 1
 
-NoiseRatio1 = np.float64(10)
-NoiseRatio2 = np.float64(10)
+NoiseRatio1 = 10.0
+NoiseRatio2 = 10.0
 
 k = np.float64(triggers)
-autocorr2 = np.float64(0.0)
+autocorr2 =  0.0
 
 t0 = time()
-# sig0 = np.float64(np.random.randn(lags))
-# sig1 = np.float64(np.tile(sig0, points/lags))
 sig1 = np.float64(np.random.randn(points))
 sig0 = sig1
 
