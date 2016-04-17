@@ -23,26 +23,6 @@ import csv
 from os import path
 import sys
 from shutil import copy
-import h5py
-
-
-def get_hdf5data(filename):
-    '''
-    Currently under construction!
-    requires manual addustments
-    '''
-    hdf5data = emptyClass()
-    with h5py.File(filename, 'r') as f:
-        hdf5data.magnet = np.array(f['Data']['Data'][:, 0, 0])
-        hdf5data.freq = np.array(f['Data']['Data'][0, 1, :])
-        D1real = np.array(f['Data']['Data'][:, 4, :])  # mag v.s. freq
-        D1imag = np.array(f['Data']['Data'][:, 5, :])  # mag v.s freq
-        hdf5data.D1complex = 1j*D1imag
-        hdf5data.D1complex += D1real
-        # hdf5data.D1phase = np.angle(D1real + 1j*D1imag)
-        hdf5data.D1real = D1real
-        hdf5data.D1imag = D1imag
-    return hdf5data
 
 
 def ask_overwrite(filename):
@@ -53,7 +33,7 @@ def ask_overwrite(filename):
             return sys.exit("Abort")
 
 
-def copy_file(thisfile, file_add, folder=''):
+def copy_file_interminal(thisfile, file_add, folder=''):
     ''' folder = "somefolder\\"
     i.e.
     thisfile = '__filename__'
@@ -63,7 +43,21 @@ def copy_file(thisfile, file_add, folder=''):
     # filen = path.basename(thisfile)     # something.py
     ffile = path.abspath(thisfile)     # D:\something.py
     ffolder = path.dirname(thisfile)    # EMPTY
-    new_ffile = ffolder + folder + thisfile[:-3] + '_' + file_add + thisfile[-3:]
+    new_ffile = ffolder+folder+thisfile[:-3]+'_'+file_add+thisfile[-3:]
+    copy(ffile, new_ffile)
+
+
+def copy_file(thisfile, file_add, folder=''):
+    ''' folder = "somefolder\\"
+    i.e.
+    thisfile = '__filename__'
+    copy_file(thisfile, 'bla','data\\')
+    '''
+    # drive = os.getcwd()                # D:\
+    filen = path.basename(thisfile)     # something.py
+    ffile = path.abspath(thisfile)     # D:\something.py
+    ffolder = path.dirname(thisfile)    # EMPTY
+    new_ffile = ffolder+'\\'+folder+file_add+'_'+filen[:-3]+thisfile[-3:]
     copy(ffile, new_ffile)
 
 
@@ -91,27 +85,22 @@ def loaddat(*inputs):
 
 
 def savedat(filename1, data1, **quarks):
-    '''
-    redundand function
-    it rotates the data nicely for gnuplot and then
-    simply uses : np.savetxt(filename, data, delimiter = '\t')
-
-    filename, data, arguments
+    # just use : np.savetxt(filename, data, delimiter = ',')
+    '''filename, data, arguments
     simply uses numpy.savetext with a
-    delimiter = '\t'
+    delimiter = ','
 
-    np.savetxt("QsQr.dat",stuff, delimiter ='\t')
+    np.savetxt("QsQr.dat",stuff ,delimiter =',')
     default: delimiter = '\t'  (works best with gnuplot even with excel)
     '''
     data1 = zip(*data1)
-    print filename1
     if 'delimiter' in quarks:
         np.savetxt(filename1, data1, **quarks)
     else:
-        np.savetxt(filename1, data1, delimiter='\t', **quarks)
+        np.savetxt(filename1, data1, delimiter = '\t', **quarks)
 
 
-def loadcsv(filename, delim=';'):
+def loadcsv(filename, delim =';'):
     # open file (using with to make sure file is closed afer use)
     with open(filename, 'Ur') as f:
         # collect tuples as a list in data, then convert to an np.array and return
@@ -153,7 +142,6 @@ def loadmtx(filename):
         M = np.reshape(data, (s[2], s[1], s[0]), order="F")
     return M, header
 
-
 # note: reshape modes
 # a
 # Out[133]:
@@ -179,31 +167,70 @@ def loadmtx(filename):
 #         return test1
 
 
+def farray(filename, myshape, new=False):
+    ''' File Array
+        This uses a very useful function to deal with slightly larger data files
+        maps an numpy array of the shape (myshape) into the hard disk as a file
+        if new is set to True it deletes the old one and creates a new file.
+        Otherwise it simply opens the old one.
+        Important to note is the shape information.
+    '''
+    if new:
+        return np.memmap(
+            filename, dtype='float32', mode='w+', shape=myshape, order='C')
+    return np.memmap(
+        filename, dtype='float32', mode='r+', shape=myshape, order='C')
+
+
+def farray2mtx(farrayfn, shape, header='Units,ufo,d1,0,1,d2,0,1,d3,0,1'):
+    '''MTX - file parser by Ben Schneider
+    changes the farray file into an mtx file for spyview
+    '''
+    newfile = farrayfn + '.mtx'
+    line = str(shape[2])+' '+str(shape[1])+' '+str(shape[0])+' '+'8'
+    fp = np.memmap(farrayfn, dtype='float32', mode='r', shape=shape, order='C')
+    with open(newfile, 'wb') as f:
+        f.write(header + '\n')
+        f.write(line + '\n')
+        for ii in range(shape[2]):
+            for jj in range(shape[1]):
+                content = pack('%sd' % shape[0], *fp[:, jj, ii])
+                f.write(content)
+        f.close()
+
+
 def savemtx(filename, data, header='Units,ufo,d1,0,1,d2,0,1,d3,0,1'):
     '''MTX - file parser by Ben Schneider
     stores to the file:
     Units, Dataset name, xname, xmin, xmax, yname, ymin, ymax, zname, zmin, zmax
     nx ny nz length
     [binary data....]
-
     the first line is the header i.e. with
-    myheader = 'Units, S11, Magnet (T), -1, 1, Volt (V), -10, 10, Freqeuency (Hz), 1, 10'
+    default header: 'Units,ufo,d1,0,1,d2,0,1,d3,0,1'
+    'Units, S11, Magnet (T), -1, 1, Volt (V), -10, 10, Freqeuency (Hz), 1, 10'
     savemtx('myfile.mtx',my-3d-np-array, header = myheader)
+    # Update looping through the individual elements as for big files this is safer.
     '''
     with open(filename, 'wb') as f:
-        f.write(header +'\n')
+        f.write(header + '\n')
 
         mtxshape = data.shape
         line = str(mtxshape[2])+' '+str(mtxshape[1])+' '+str(mtxshape[0])+' '+'8'
-        f.write(line+'\n')   # 'x y z 8 \n'
+        f.write(line + '\n')  # 'x y z 8 \n'
 
-        raw2 = np.reshape(data, mtxshape[0]*mtxshape[1]*mtxshape[2], order="F")
-        raw = pack('%sd' % len(raw2), *raw2)
-        f.write(raw)
+        # raw2 = np.reshape(
+        #               data, mtxshape[0]*mtxshape[1]*mtxshape[2], order="F")
+        # raw = pack('%sd' % len(raw2), *raw2)
+        # f.write(raw)
+        # f.close()
+        for ii in range(mtxshape[2]):
+            for jj in range(mtxshape[1]):
+                content = pack('%sd' % mtxshape[0], *data[:, jj, ii])
+                f.write(content)
         f.close()
 
 
-def make_header(dim_1, dim_2, dim_3, meas_data='(a.u)'):
+def make_header(dim_1, dim_2, dim_3, meas_data='ufo'):
     '''
     def your sweep axis/name, start and stop
     values = Measured Voltage (V)
@@ -216,71 +243,15 @@ def make_header(dim_1, dim_2, dim_3, meas_data='(a.u)'):
     returns a text string used as 1st line of an mtx file
     '''
     header = ('Units,'+ meas_data +','+
-                dim_1.name+','+ str(dim_1.start)+','+ str(dim_1.stop)+','+
-                dim_2.name+','+ str(dim_2.start)+','+ str(dim_2.stop)+','+
-                dim_3.name+','+ str(dim_3.start)+','+ str(dim_3.stop))
+                dim_1.name+','+str(dim_1.start)+','+ str(dim_1.stop)+','+
+                dim_2.name+','+str(dim_2.start)+','+ str(dim_2.stop)+','+
+                dim_3.name+','+str(dim_3.start)+','+ str(dim_3.stop))
     return header
 
-
-def read_header(head, **quark):
-    ''' reads header file and returns dim names, axis
-    dim1,dim2,dim3,dim_z = read_header(head, Data=datafile)
-    Data is optional
-    '''
-    d1 = 1
-    d2 = 1
-    d3 = 1
-    if 'Data' in quark:
-        dd = quark['Data']
-        d1 = dd.shape[2]
-        d2 = dd.shape[1]
-        d3 = dd.shape[0]
-
-    dim_1 = dim(name = head[2], start = eval(head[3]), stop= eval(head[4]), pt =d1)
-    dim_2 = dim(name = head[5], start = eval(head[6]), stop= eval(head[7]), pt =d2)
-    dim_3 = dim(name = head[8], start = eval(head[9]), stop= eval(head[10]), pt =d3)
-    dim_z = dim(name = head[1])
-    return dim_1, dim_2, dim_3, dim_z
-
-
-def read_header_old(head, **quark):
-    ''' reads header file and returns dim names, axis
-    dim1,dim2,dim3,dim_z = read_header(head, Data=datafile)
-    Data is optional
-    '''
-    d1 = 1
-    d2 = 1
-    d3 = 1
-    if 'Data' in quark:
-        dd = quark['Data']
-        d1 = dd.shape[2]
-        d2 = dd.shape[1]
-        d3 = dd.shape[0]
-
-    dim_1 = dim(name = head[2], start = eval(head[3]), stop= eval(head[4]), pt =d1)
-    dim_2 = dim(name = head[5], start = eval(head[7]), stop= eval(head[6]), pt =d2)
-    dim_3 = dim(name = head[8], start = eval(head[9]), stop= eval(head[10]), pt =d3)
-    dim_z = dim(name = head[1])
-    return dim_1, dim_2, dim_3, dim_z
-
-
 class dim():
-    def __init__(self, name = 'ufo', start = 0, stop = 0, pt = 1, scale = 1):
-        self.name = name     #ufo: unknown fried object
+    def __init__(self, name = 'void' ,start = 0, stop = 0, pt = 1, scale = 1):
+        self.name = name
         self.start = start
         self.stop = stop
         self.pt = pt
         self.lin = np.linspace(self.start,self.stop,self.pt)*scale
-        self.scale = scale
-
-
-    def update_lin(self):
-        self.lin = np.linspace(self.start,self.stop,self.pt)*self.scale
-
-
-class emptyClass():
-    '''
-    Just an empty class, that can be used for storage
-    '''
-    def __init__(self):
-        pass
