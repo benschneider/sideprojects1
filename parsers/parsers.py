@@ -78,10 +78,17 @@ def loaddat(*inputs):
     >> A = loaddat('1.dat')
     >> A[0]
     (1,3,c,7)
-    '''
+
     file_data = np.genfromtxt(*inputs)
     outputs = zip(*file_data)
     return outputs
+    '''
+    file_data = np.genfromtxt(*inputs)
+    try:
+        # basically failes if only one dimension is present
+        outputs = zip(*file_data)
+    finally:
+        return outputs
 
 
 def savedat(filename1, data1, **quarks):
@@ -125,7 +132,7 @@ def loadmtx(filename):
 
         line = f.readline()
         # header = line[:-1].split(',')
-        header = line
+        header = line[:-1]
 
         line = f.readline()
         a = line[:-1].split(' ')
