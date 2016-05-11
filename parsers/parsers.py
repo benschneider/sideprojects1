@@ -23,6 +23,8 @@ import csv
 from os import path
 import sys
 from shutil import copy
+import h5py
+import tables as tb
 
 
 def ask_overwrite(filename):
@@ -84,11 +86,12 @@ def loaddat(*inputs):
     return outputs
     '''
     file_data = np.genfromtxt(*inputs)
+    output = file_data
     try:
         # basically failes if only one dimension is present
-        outputs = zip(*file_data)
+        output = zip(*file_data)
     finally:
-        return outputs
+        return np.array(output)
 
 
 def savedat(filename1, data1, **quarks):
@@ -264,3 +267,26 @@ class dim():
         self.stop = stop
         self.pt = pt
         self.lin = np.linspace(self.start, self.stop, self.pt) * scale
+
+
+class storehdf5(object):
+    def __init__(self, fname, clev=5, clib='blosc'):
+        '''Class to use Pytables'''
+        self.fname = fname
+        self.clev = clev  # compression level
+        self.clib = clib  # compression library / type
+        self.filt = tb.Filters(complevel=clev, complib=clib)
+        self.mode = 'w'  # write a new file
+        # self.open(self.mode)
+
+    def open(self, mode='a'):
+        self.hdf5 = tb.open_file(self.fname, mode)
+
+    def add_data(self, data, label='label1'):
+        self.data_storage = self.hdf5.create_carray(
+            self.hdf5.root, label, tb.Atom.from_dtype(data.dtype),
+            shape=data.shape, filters=self.filt)
+        self.data_storage[:] = data
+
+    def close(self):
+        self.hdf5.close()
