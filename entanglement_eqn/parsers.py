@@ -305,31 +305,24 @@ def savemtx(filename, data, header='Units,ufo,d1,0,1,d2,0,1,d3,0,1'):
         f.close()
 
 
-def make_header(dim_1, dim_2, dim_3, meas_data='(a.u)'):
+def make_header(d1, d2, d3, meas_data='(a.u)'):
     '''
     def your sweep axis/name, start and stop
     values = Measured Voltage (V)
-    dim_1.name = Current (A)
-    dim_1.start = 0
-    dim_1.stop = 1
-    dim_2.name = Voltage (V)
+    d1.name = Current (A)
+    d1.start = 0
+    d1.stop = 1
+    d2.name = Voltage (V)
     ...
-    dim_3.name = RF Power (dB)
+    d3.name = RF Power (dB)
     returns a text string used as 1st line of an mtx file
     '''
-    # header = ('Units,' + meas_data + ',' +
-    #           dim_1.name + ',' + str(dim_1.start) + ',' + str(dim_1.stop) +
-    #           ',' +
-    #           dim_2.name + ',' + str(dim_2.start) + ',' + str(dim_2.stop) +
-    #           ',' +
-    #           dim_3.name + ',' + str(dim_3.start) + ',' + str(dim_3.stop))
-
     header = ('Units,' + meas_data + ',' +
-              dim_1.name + ',' + str(dim_1.lin[0]) + ',' + str(dim_1.lin[-1]) +
+              d1.name + ',' + str(d1.start) + ',' + str(d1.stop) +
               ',' +
-              dim_2.name + ',' + str(dim_2.lin[0]) + ',' + str(dim_2.lin[1]) +
+              d2.name + ',' + str(d2.start) + ',' + str(d2.stop) +
               ',' +
-              dim_3.name + ',' + str(dim_3.lin[0]) + ',' + str(dim_3.lin[1]))
+              d3.name + ',' + str(d2.start) + ',' + str(d2.stop))
     return header
 
 
@@ -377,6 +370,7 @@ def read_header_old(head, **quark):
 
 
 class dim():
+
     def __init__(self, name='ufo', start=0, stop=0, pt=1, scale=1):
         self.name = name   # ufo: unknown fried object
         self.start = start
@@ -393,5 +387,6 @@ class emptyClass():
     '''
     Just an empty class, that can be used for storage
     '''
+
     def __init__(self):
         pass

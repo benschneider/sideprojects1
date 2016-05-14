@@ -134,7 +134,8 @@ class variable_carrier():
 
     def calc_diff_resistance(self):
         '''
-        calculates the differential resistance of all traces in one go
+        calculates the differential resistance of all traces in the
+        variable carrier
         '''
         self.d3step = self.d3.lin[1] - self.d3.lin[0]   # get step-size
         self.dIV = xderiv(self.Vm[0], self.d3step)
@@ -159,15 +160,15 @@ class variable_carrier():
         V = np.zeros(8)
         for x2 in range(self.d2.pt):
             for x3 in range(self.d3.pt):
-                S[0], N[0] = self.get_SNR(self.I1I1[:, x2, x3], cpt)
-                S[1], N[1] = self.get_SNR(self.Q1Q1[:, x2, x3], cpt)
-                S[2], N[2] = self.get_SNR(self.I2I2[:, x2, x3], cpt)
-                S[3], N[3] = self.get_SNR(self.Q2Q2[:, x2, x3], cpt)
+                S[0], N[0] = get_SNR(self.I1I1[:, x2, x3], cpt)
+                S[1], N[1] = get_SNR(self.Q1Q1[:, x2, x3], cpt)
+                S[2], N[2] = get_SNR(self.I2I2[:, x2, x3], cpt)
+                S[3], N[3] = get_SNR(self.Q2Q2[:, x2, x3], cpt)
                 V[:4] = S[:4]
-                S[4], N[4] = self.get_SNR(self.I1I2[:, x2, x3], cpt)
-                S[5], N[5] = self.get_SNR(self.I1Q2[:, x2, x3], cpt)
-                S[6], N[6] = self.get_SNR(self.Q1I2[:, x2, x3], cpt)
-                S[7], N[7] = self.get_SNR(self.Q1Q2[:, x2, x3], cpt)
+                S[4], N[4] = get_SNR(self.I1I2[:, x2, x3], cpt)
+                S[5], N[5] = get_SNR(self.I1Q2[:, x2, x3], cpt)
+                S[6], N[6] = get_SNR(self.Q1I2[:, x2, x3], cpt)
+                S[7], N[7] = get_SNR(self.Q1Q2[:, x2, x3], cpt)
                 V[4] = S[4] if abs(S[4]) > snr * N[4] else 0.0
                 V[5] = S[5] if abs(S[5]) > snr * N[5] else 0.0
                 V[6] = S[6] if abs(S[6]) > snr * N[6] else 0.0
@@ -176,31 +177,71 @@ class variable_carrier():
                 self.Narr[:, x2, x3] = N
                 self.Varr[:, x2, x3] = V
 
-    def get_SNR(self, array, range):
-        pos0 = find_absPeakPos(array, range)
-        signal = array[pos0]
-        noise = self.calU(array, pos0, range)
-        return signal, noise
 
-    def calU(self, z1, lags0, cpt):
-        '''
-        This function removes from an array
-        cpt points around the lag0 position
-        and returns the square root variance of this new array.
-        Get background noise value of the cross correlation data.
-        '''
-        z2 = z1[:lags0 - cpt] * 1.0
-        z3 = z1[lags0 + cpt:] * 1.0
-        return abs(np.sqrt(np.var(np.concatenate([z2, z3]))))/2.0
+def get_SNR(array, distance):
+    pos0 = find_absPeakPos(array, distance)
+    offset = getOffset(array, pos0, 4)
+    signal = array[pos0] - offset
+    noise = calU(array, pos0, distance)
+    return signal, noise
 
 
-'''
-Beginning of the functions used for fitting and such
--------------------------------------------------------
-'''
+def calU(z1, lags0, cpt):
+    '''
+    This function removes from an array
+    cpt points around the lag0 position
+    and returns the square root variance of this new array.
+    Get background noise value of the cross correlation data.
+    '''
+    z2 = z1[:lags0 - cpt] * 1.0
+    z3 = z1[lags0 + cpt:] * 1.0
+    return abs(np.sqrt(np.var(np.concatenate([z2, z3]))))/2.0
 
 
-def find_absPeakPos(someArray, range=5):
+def getOffset(z1, lags0, cpt):
+    '''
+    This function removes from an array
+    cpt points around the lag0 position
+    and returns the mean offset
+    '''
+    z2 = z1[:lags0 - cpt] * 1.0
+    z3 = z1[lags0 + cpt:] * 1.0
+    return abs(np.mean(np.concatenate([z2, z3])))
+
+
+def find_switch(array, threshold=1e-9):
+    '''
+    array is a 1-D array
+    threshold is the limit of passable point to point changes.
+    finds a position at which a sudden switch/jump is present on the order of
+    switch
+    A switch is found by two successive jumps, one down/up and then another.
+    (of course this will give a false response for two steps in succession)
+    If these happen in succession we found a single pixel error
+    (returns only the first point it finds then it stops searching)
+    '''
+    a = array[0]
+    idx = 0
+    for mm, val in enumerate(array):
+        if abs(a-val) > threshold:
+            if (mm-1 == idx):  # if prev and current position had a jump we found one
+                return idx
+            idx = mm
+        a = val
+
+
+def fix_switch(array, pos):
+    '''
+    The fix only works for continuous functions.
+    It tries to find a point such that the first and second
+    derivative is smooth at the position.
+    '''
+    darray = xderiv(array)  # first x-derivative
+    ddarray = xderiv(darray)    # second x-derivative
+    pass
+
+
+def find_absPeakPos(someArray, range=1):
     '''
     finds within a short range around the center of
     an array the peak/ dip value position
@@ -437,14 +478,14 @@ def DoSNfits(vc, plotFit=False):
     crop_within = find_nearest(vc.I, -7.0e-6), find_nearest(vc.I, 7.0e-6)
     # crop_within = find_nearest(vc.I, -0.0), find_nearest(vc.I, 0.0)
     # crop_within = find_nearest(vc.I, -0.4e-6), find_nearest(vc.I, 0.5e-6)
-    crop_outside = find_nearest(vc.I, -19e-6), find_nearest(vc.I, 19e-6)
+    crop_outside = find_nearest(vc.I, -18e-6), find_nearest(vc.I, 18e-6)
     vc.crop = [crop_within, crop_outside]
     # create fitting parameters
     params = Parameters()
-    params.add('Tn1', value=3.7, vary=True, min=2.0, max=5.0)
-    params.add('G1', value=3.38e7, vary=True, min=1e7, max=1e8)
-    params.add('Tn2', value=3.2, vary=True, min=2.0, max=5.0)
-    params.add('G2', value=4.8e7, vary=True, min=1e7, max=1e8)
+    params.add('Tn1', value=3.7, vary=True, min=1.0, max=4.0)
+    params.add('G1', value=3.38e7, vary=True, min=1e7, max=1e15)
+    params.add('Tn2', value=3.2, vary=True, min=1.0, max=4.0)
+    params.add('G2', value=4.8e7, vary=True, min=1e7, max=1e15)
     # params.add('T1', value=0.05, vary=False, min=0.01, max=0.25)
     # params.add('T2', value=0.05, vary=False, min=0.01, max=0.25)
     params.add('T', value=vc.Texp, vary=False, min=0.001, max=0.050)
