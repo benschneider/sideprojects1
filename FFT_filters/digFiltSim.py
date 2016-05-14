@@ -6,44 +6,6 @@ from scipy.constants import Boltzmann as k
 import Gnuplot as gp
 
 
-N = int(1e4)
-T = 1e-6  # step size
-t = np.linspace(0, N*T, N)  # time
-fstep = 1.0/(N*T)
-
-s1 = 1.0
-s2 = 2.0
-
-f1 = 1000
-Lo = 187
-f2 = f1 + 2*Lo
-phi = 0.0
-
-
-def digi(signal, f1):
-    I = signal*sin(2.0*pi*(f1+Lo)*t)
-    Q = signal*sin(2.0*pi*(f1+Lo)*t+pi/2.0)
-    return I, Q
-
-
-sig1 = s1*sin(2*pi*f1*t+phi)
-sig2 = s2*sin(2*pi*f2*t)
-signal = sig1 + sig2
-
-Isig, Qsig = digi(signal, f1)
-Isig1, Qsig1 = digi(sig1, f1)
-
-csig = 1j*Isig + Qsig
-
-fftcsig = np.fft.fftshift(np.fft.fft(csig))
-freq = np.fft.fftshift(np.fft.fftfreq(N, d=T))
-# fftI = np.fft.fftshift(np.fft.fft(Isig))
-# fftQ = np.fft.fftshift(np.fft.fft(Qsig))
-# freq = np.fft.fftshift(np.fft.fftfreq(N, d=T))
-# fftI1 = np.fft.fftshift(np.fft.fft(Isig1))
-# fftQ1 = np.fft.fftshift(np.fft.fft(Isig1))
-
-
 def LPfft(sinput, lpfreq, T):
     Nlp = int(lpfreq*len(sinput)*T)
     fftlp = np.fft.fft(sinput)  # 0,1,2,3,-3,-2,-1
@@ -57,14 +19,79 @@ def killsideband(sinput, killup=True):
         sinput[smid:-1] = 0.0
     else:
         sinput[0:smid] = 0.0
-    return sinput*2.0
+    return sinput
+
+
+def digi(signal, f1, sampfreq):
+    I = signal*sin(2.0*pi*(f1+Lo)*t)
+    Q = signal*sin(2.0*pi*(f1+Lo)*t+pi/2.0)
+    return I, Q
+
+
+def movavg(array, avpt):
+    Numb = len(array)/avpt
+    Narray = 1j*np.zeros(Numb)
+    for jj in range(Numb):
+        Narray[jj] = np.average(array[jj*avpt:(jj+1)*avpt])
+    return Narray
+
+sampfreq = 25
+avpt = int(250/sampfreq)
+N = int(1e4)*avpt
+T = 1.0/250  # step size
+t = np.linspace(0, N*T, N)  # time
+fstep = 1.0/(N*T)
+s1 = 1.0
+s2 = 1.0
+f1 = 1000
+Lo = 187
+f2 = f1 + 2*Lo
+phi = np.pi*1.9/1.0
+
+sig1 = s1*sin(2*pi*f1*t+phi)
+sig2 = s2*sin(2*pi*f2*t)
+signal = sig1 + sig2
+Isig, Qsig = digi(signal, f1, sampfreq)
+Isig1, Qsig1 = digi(sig1, f1, sampfreq)
+csig = 1j*Isig + Qsig
+fftcsig = np.fft.fftshift(np.fft.fft(csig))
+freq = np.fft.fftshift(np.fft.fftfreq(N, d=T))
+
+fftcavg = np.fft.fftshift(np.fft.fft(movavg(csig, avpt)))
+freqavg = np.fft.fftshift(np.fft.fftfreq((N/avpt), d=T*avpt))
 
 
 plt.close('all')
 plt.ion()
-plt.figure()
-plt.plot(freq, np.abs(fftcsig)/(N-1))
-plt.plot(freq, np.angle(fftcsig))
+# plt.figure(100)
+# plt.plot(freq, np.abs(fftcsig)/(N-1))
+# plt.plot(freq, np.angle(fftcsig))
+
+plt.figure(101)
+plt.plot(freqavg, np.abs(fftcavg)/(N-1))
+plt.plot(freqavg, np.angle(fftcavg))
+
+plt.figure(102)
+plt.plot(np.fft.ifft(fftcavg))
+
+# fftI = np.fft.fftshift(np.fft.fft(Isig))
+# fftQ = np.fft.fftshift(np.fft.fft(Qsig))
+# freq = np.fft.fftshift(np.fft.fftfreq(N, d=T))
+# fftI1 = np.fft.fftshift(np.fft.fft(Isig1))
+# fftQ1 = np.fft.fftshift(np.fft.fft(Isig1))
+
+# IQ = np.fft.ifft(fftcsig)
+# fftcsig2 = killsideband(fftcsig, killup=True)
+# IQ2 = np.fft.ifft(fftcsig2)
+
+# plt.figure(99)
+# plt.plot(IQ.real)
+# plt.figure(98)
+# plt.plot(IQ.imag)
+# plt.figure(97)
+# plt.plot(IQ2.real)
+# plt.figure(96)
+# plt.plot(IQ2.imag)
 
 # plt.figure(1)
 # plt.plot(t, sig1)

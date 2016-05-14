@@ -6,7 +6,12 @@ h*e*pi*Kb
 # xoffsets:
 # with xoff = pos of 0.5 flux quanta
 # dx = corres distance of flux quanta
-xoff = 139.3e-3
-x1flux = 479.6e-3
-x = (x-xoff)/x1flux + 0.5
+#xoff = 139.3e-3
+#x1flux = 479.6e-3
+#x = (x-xoff)/x1flux + 0.5
 # (x - 139.3e-3)/479.6e-3+0.5
+
+#for S1_900+ files
+xoff = 0.008
+x1flux = 479.6e-3
+x2 = (x-xoff)/x1flux + 0.5

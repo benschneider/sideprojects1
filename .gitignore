@@ -14,3 +14,6 @@ xsection.dat
 *.img_proc
 notes
 entanglement_eqn/output
+entanglement_eqn/*.png
+entanglement_eqn/*.pdf
+entanglement_eqn/april_2016
