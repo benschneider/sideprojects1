@@ -119,6 +119,38 @@ def loadcsv(filename, delim=';'):
     return data.transpose()
 
 
+def farray(filename, myshape, new=False):
+    ''' File Array
+        This uses a very useful function to deal with slightly larger data files
+        maps an numpy array of the shape (myshape) into the hard disk as a file
+        if new is set to True it deletes the old one and creates a new file.
+        Otherwise it simply opens the old one.
+        Important to note is the shape information.
+    '''
+    if new:
+        return np.memmap(
+            filename, dtype='float32', mode='w+', shape=myshape, order='C')
+    return np.memmap(
+        filename, dtype='float32', mode='r+', shape=myshape, order='C')
+
+
+def farray2mtx(farrayfn, shape, header='Units,ufo,d1,0,1,d2,0,1,d3,0,1'):
+    '''MTX - file parser by Ben Schneider
+    changes the farray file into an mtx file for spyview
+    '''
+    newfile = farrayfn + '.mtx'
+    line = str(shape[2]) + ' ' + str(shape[1]) + ' ' + str(shape[0]) + ' ' + '8'
+    fp = np.memmap(farrayfn, dtype='float32', mode='r', shape=shape, order='C')
+    with open(newfile, 'wb') as f:
+        f.write(header + '\n')
+        f.write(line + '\n')
+        for ii in range(shape[2]):
+            for jj in range(shape[1]):
+                content = pack('%sd' % shape[0], *fp[:, jj, ii])
+                f.write(content)
+        f.close()
+
+
 def loadmtx(filename):
     '''
     Loads an mtx file (binary compressed file)
@@ -152,61 +184,25 @@ def loadmtx(filename):
         M = np.reshape(data, (s[2], s[1], s[0]), order="F")
     return M, header
 
-# note: reshape modes
-# a
-# Out[133]:
-#  array([[1, 2, 3],
-# 	[4, 5, 6]])
-#
-# In [134]: a.reshape(3,2, order='F')
-# Out[134]:
-#  array([[1, 5],
-# 	[4, 3],
-# 	[2, 6]])
-#
-# In [135]: a.reshape(3,2, order='c')
-# Out[135]:
-#  array([[1, 2],
-# 	[3, 4],
-# 	[5, 6]])
-# def test1(*test1,**test2):
-#     '''A function to test arcs and quarks in python'''
-#     if 'head' in test2:
-#         return test2
-#     else:
-#         return test1
 
-
-def farray(filename, myshape, new=False):
-    ''' File Array
-        This uses a very useful function to deal with slightly larger data files
-        maps an numpy array of the shape (myshape) into the hard disk as a file
-        if new is set to True it deletes the old one and creates a new file.
-        Otherwise it simply opens the old one.
-        Important to note is the shape information.
+def read_header(head, M=None):
+    ''' reads header file and returns dim names, axis
+    dim1,dim2,dim3,dim_z = read_header(head, Data=datafile)
+    Data is optional
     '''
-    if new:
-        return np.memmap(
-            filename, dtype='float32', mode='w+', shape=myshape, order='C')
-    return np.memmap(
-        filename, dtype='float32', mode='r+', shape=myshape, order='C')
-
-
-def farray2mtx(farrayfn, shape, header='Units,ufo,d1,0,1,d2,0,1,d3,0,1'):
-    '''MTX - file parser by Ben Schneider
-    changes the farray file into an mtx file for spyview
-    '''
-    newfile = farrayfn + '.mtx'
-    line = str(shape[2]) + ' ' + str(shape[1]) + ' ' + str(shape[0]) + ' ' + '8'
-    fp = np.memmap(farrayfn, dtype='float32', mode='r', shape=shape, order='C')
-    with open(newfile, 'wb') as f:
-        f.write(header + '\n')
-        f.write(line + '\n')
-        for ii in range(shape[2]):
-            for jj in range(shape[1]):
-                content = pack('%sd' % shape[0], *fp[:, jj, ii])
-                f.write(content)
-        f.close()
+    d1 = 1
+    d2 = 1
+    d3 = 1
+    if M:
+        dd = M
+        d1 = dd.shape[2]
+        d2 = dd.shape[1]
+        d3 = dd.shape[0]
+    dim_1 = dim(name=head[2], start=eval(head[3]), stop=eval(head[4]), pt=d1)
+    dim_2 = dim(name=head[5], start=eval(head[6]), stop=eval(head[7]), pt=d2)
+    dim_3 = dim(name=head[8], start=eval(head[9]), stop=eval(head[10]), pt=d3)
+    dim_z = dim(name=head[1])
+    return dim_1, dim_2, dim_3, dim_z
 
 
 def savemtx(filename, data, header='Units,ufo,d1,0,1,d2,0,1,d3,0,1'):
@@ -259,6 +255,16 @@ def make_header(dim_1, dim_2, dim_3, meas_data='ufo'):
     return header
 
 
+class dim():
+
+    def __init__(self, name='void', start=0, stop=0, pt=1, scale=1):
+        self.name = name
+        self.start = start
+        self.stop = stop
+        self.pt = pt
+        self.lin = np.linspace(self.start, self.stop, self.pt) * scale
+
+
 class storehdf5(object):
     def __init__(self, fname, clev=1, clib='blosc'):
         '''Class to use Pytables'''
@@ -295,11 +301,26 @@ class storehdf5(object):
         self.h5.close()
 
 
-class dim():
-
-    def __init__(self, name='void', start=0, stop=0, pt=1, scale=1):
-        self.name = name
-        self.start = start
-        self.stop = stop
-        self.pt = pt
-        self.lin = np.linspace(self.start, self.stop, self.pt) * scale
+# note: reshape modes
+# a
+# Out[133]:
+#  array([[1, 2, 3],
+# 	[4, 5, 6]])
+#
+# In [134]: a.reshape(3,2, order='F')
+# Out[134]:
+#  array([[1, 5],
+# 	[4, 3],
+# 	[2, 6]])
+#
+# In [135]: a.reshape(3,2, order='c')
+# Out[135]:
+#  array([[1, 2],
+# 	[3, 4],
+# 	[5, 6]])
+# def test1(*test1,**test2):
+#     '''A function to test arcs and quarks in python'''
+#     if 'head' in test2:
+#         return test2
+#     else:
+#         return test1
