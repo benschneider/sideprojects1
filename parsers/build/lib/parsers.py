@@ -119,64 +119,6 @@ def loadcsv(filename, delim=';'):
     return data.transpose()
 
 
-def loadmtx(filename):
-    '''
-    Loads an mtx file (binary compressed file)
-    (first two lines of the MTX contain information of the data shape and
-    what units, limits are present)
-    i.e.:
-
-    mtx, header = loadmtx('filename.mtx')
-
-    mtx     :   will contain a 3d numpy array of the data
-    header  :   will contain information on the labels and limits
-    '''
-    with open(filename, 'rb') as f:
-
-        line = f.readline()
-        # header = line[:-1].split(',')
-        header = line[:-1]
-
-        line = f.readline()
-        a = line[:-1].split(' ')
-        s = np.array(map(float, a))
-
-        raw = f.read()  # reads everything else
-        f.close()
-
-    if s[3] == 4:
-        data = unpack('f' * (s[2] * s[1] * s[0]), raw)  # uses float
-        M = np.reshape(data, (s[2], s[1], s[0]), order="F")
-    else:
-        data = unpack('d' * (s[2] * s[1] * s[0]), raw)  # uses double
-        M = np.reshape(data, (s[2], s[1], s[0]), order="F")
-    return M, header
-
-# note: reshape modes
-# a
-# Out[133]:
-#  array([[1, 2, 3],
-# 	[4, 5, 6]])
-#
-# In [134]: a.reshape(3,2, order='F')
-# Out[134]:
-#  array([[1, 5],
-# 	[4, 3],
-# 	[2, 6]])
-#
-# In [135]: a.reshape(3,2, order='c')
-# Out[135]:
-#  array([[1, 2],
-# 	[3, 4],
-# 	[5, 6]])
-# def test1(*test1,**test2):
-#     '''A function to test arcs and quarks in python'''
-#     if 'head' in test2:
-#         return test2
-#     else:
-#         return test1
-
-
 def farray(filename, myshape, new=False):
     ''' File Array
         This uses a very useful function to deal with slightly larger data files
@@ -207,6 +149,64 @@ def farray2mtx(farrayfn, shape, header='Units,ufo,d1,0,1,d2,0,1,d3,0,1'):
                 content = pack('%sd' % shape[0], *fp[:, jj, ii])
                 f.write(content)
         f.close()
+
+
+def loadmtx(filename, dims=False):
+    '''
+    Loads an mtx file (binary compressed file)
+    (first two lines of the MTX contain information of the data shape and
+    what units, limits are present)
+    i.e.:
+
+    mtx, header = loadmtx('filename.mtx')
+
+    mtx     :   will contain a 3d numpy array of the data
+    header  :   will contain information on the labels and limits
+    '''
+    with open(filename, 'rb') as f:
+
+        line = f.readline()
+        header = line[:-1]
+
+        line = f.readline()
+        a = line[:-1].split(' ')
+        s = np.array(map(float, a))
+
+        raw = f.read()  # reads everything else
+        f.close()
+
+    if s[3] == 4:
+        data = unpack('f' * (s[2] * s[1] * s[0]), raw)  # uses float
+        M = np.reshape(data, (s[2], s[1], s[0]), order="F")
+    else:
+        data = unpack('d' * (s[2] * s[1] * s[0]), raw)  # uses double
+        M = np.reshape(data, (s[2], s[1], s[0]), order="F")
+    if dims:
+        d1, d2, d3, dz = read_header(header, M)
+        return M, d1, d2, d3, dz
+
+    return M, header
+
+
+def read_header(headerline, M=None):
+    ''' reads header file and returns dim names, axis
+    dim1, dim2, dim3, dim_z = read_header(head, Data=datafile)
+    Data is optional
+    '''
+    head = headerline.split(',')
+    d1 = 1
+    d2 = 1
+    d3 = 1
+    if M is not None:
+        dd = M
+        d1 = dd.shape[2]
+        d2 = dd.shape[1]
+        d3 = dd.shape[0]
+    dim_1 = dim(name=head[2], start=eval(head[3]), stop=eval(head[4]), pt=d1)
+    dim_2 = dim(name=head[5], start=eval(head[6]), stop=eval(head[7]), pt=d2)
+    dim_3 = dim(name=head[8], start=eval(head[9]), stop=eval(head[10]), pt=d3)
+    dim_z = dim(name=head[1])
+    return dim_1, dim_2, dim_3, dim_z
 
 
 def savemtx(filename, data, header='Units,ufo,d1,0,1,d2,0,1,d3,0,1'):
@@ -259,6 +259,19 @@ def make_header(dim_1, dim_2, dim_3, meas_data='ufo'):
     return header
 
 
+class dim():
+
+    def __init__(self, name='void', start=0, stop=1, pt=1, scale=1):
+        self.name = name
+        self.start = start
+        self.stop = stop
+        self.pt = pt
+        self.lin = np.linspace(self.start, self.stop, self.pt) * scale
+
+    def update_lin(self):
+        self.lin = np.linspace(self.start, self.stop, self.pt)*self.scale
+
+
 class storehdf5(object):
     def __init__(self, fname, clev=1, clib='blosc'):
         '''Class to use Pytables'''
@@ -295,11 +308,26 @@ class storehdf5(object):
         self.h5.close()
 
 
-class dim():
-
-    def __init__(self, name='void', start=0, stop=0, pt=1, scale=1):
-        self.name = name
-        self.start = start
-        self.stop = stop
-        self.pt = pt
-        self.lin = np.linspace(self.start, self.stop, self.pt) * scale
+# note: reshape modes
+# a
+# Out[133]:
+#  array([[1, 2, 3],
+# 	[4, 5, 6]])
+#
+# In [134]: a.reshape(3,2, order='F')
+# Out[134]:
+#  array([[1, 5],
+# 	[4, 3],
+# 	[2, 6]])
+#
+# In [135]: a.reshape(3,2, order='c')
+# Out[135]:
+#  array([[1, 2],
+# 	[3, 4],
+# 	[5, 6]])
+# def test1(*test1,**test2):
+#     '''A function to test arcs and quarks in python'''
+#     if 'head' in test2:
+#         return test2
+#     else:
+#         return test1

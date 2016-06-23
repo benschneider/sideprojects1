@@ -151,7 +151,7 @@ def farray2mtx(farrayfn, shape, header='Units,ufo,d1,0,1,d2,0,1,d3,0,1'):
         f.close()
 
 
-def loadmtx(filename):
+def loadmtx(filename, dims=False):
     '''
     Loads an mtx file (binary compressed file)
     (first two lines of the MTX contain information of the data shape and
@@ -166,7 +166,6 @@ def loadmtx(filename):
     with open(filename, 'rb') as f:
 
         line = f.readline()
-        # header = line[:-1].split(',')
         header = line[:-1]
 
         line = f.readline()
@@ -182,18 +181,23 @@ def loadmtx(filename):
     else:
         data = unpack('d' * (s[2] * s[1] * s[0]), raw)  # uses double
         M = np.reshape(data, (s[2], s[1], s[0]), order="F")
+    if dims:
+        d1, d2, d3, dz = read_header(header, M)
+        return M, d1, d2, d3, dz
+
     return M, header
 
 
-def read_header(head, M=None):
+def read_header(headerline, M=None):
     ''' reads header file and returns dim names, axis
-    dim1,dim2,dim3,dim_z = read_header(head, Data=datafile)
+    dim1, dim2, dim3, dim_z = read_header(head, Data=datafile)
     Data is optional
     '''
+    head = headerline.split(',')
     d1 = 1
     d2 = 1
     d3 = 1
-    if M:
+    if M is not None:
         dd = M
         d1 = dd.shape[2]
         d2 = dd.shape[1]
@@ -257,12 +261,15 @@ def make_header(dim_1, dim_2, dim_3, meas_data='ufo'):
 
 class dim():
 
-    def __init__(self, name='void', start=0, stop=0, pt=1, scale=1):
+    def __init__(self, name='void', start=0, stop=1, pt=1, scale=1):
         self.name = name
         self.start = start
         self.stop = stop
         self.pt = pt
         self.lin = np.linspace(self.start, self.stop, self.pt) * scale
+
+    def update_lin(self):
+        self.lin = np.linspace(self.start, self.stop, self.pt)*self.scale
 
 
 class storehdf5(object):
