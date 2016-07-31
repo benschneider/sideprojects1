@@ -18,7 +18,7 @@ from lmfit import minimize, Parameters, report_fit  # , Parameter
 import matplotlib.pyplot as plt
 # import Gnuplot as gp
 
-
+plt.ion()
 '''
 The Two classes SN_class used to store the fit results
 ------------------------------------------------------
@@ -408,7 +408,7 @@ def get_residuals(pidx, vc, params, digi='D1'):
     # d1 = np.mean(np.sort(SNf)[:5])/factor
     # p = np.abs(d0-d1)
     # print res2
-    return res2 + pmin
+    return res2  # * (pmin+1)
 
 
 def ministuff(params, vc, pidx, digi='D1'):
@@ -491,13 +491,12 @@ def DoSNfits(vc, plotFit=False):
         vc.dRm = vc.dIVlp[pidx]  # select dRm
         if vc.Ravg > 0.0:
             vc.dRm = np.ones_like(vc.dRm)*vc.Ravg
-        # correct diff/Resistance at SC branch:
-        vc.dRm[vc.Ib0] = 0.0
+        # vc.dRm[vc.Ib0] = 0.0  # correct diff/Resistance at SC branch:
         result = minimize(ministuff, params, args=(vc, pidx, 'D1'))
         result = minimize(ministuff, result.params, args=(vc, pidx, 'D2'))
 
         # now fit all of them together:
-        result.params['T'].vary = True
+        # result.params['T'].vary = True
         result = minimize(bigstuff, result.params, args=(vc, pidx))
         print 'RF power', vc.d2.lin[pidx]
         print report_fit(result)
@@ -565,11 +564,11 @@ def plotSNfit(result, vc, pidx, digi='D1'):
     plt.figure()
     title2 = (digi + ', RF-Drive: ' + str(vc.d2.lin[pidx]))
     #plt.plot(vc.I, (data-Amp)/(vc.B*G*h*f))
-    plt.plot(vc.I, (data)/(vc.B*G*h*f))
+    plt.plot(vc.I*1e6, (data)/(vc.B*G*h*f))
     # plt.plot(vc.I*1e6, 1e9*data)
     plt.hold(True)
     #plt.plot(vc.I, (SNfit-Amp)/(vc.B*G*h*f))
-    plt.plot(vc.I, (SNfit)/(vc.B*G*h*f))
+    plt.plot(vc.I*1e6, (SNfit)/(vc.B*G*h*f))
     # plt.plot(vc.I*1e6, 1e9*SNfit)
     plt.title(title2)
     plt.hold(False)

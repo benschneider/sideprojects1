@@ -39,9 +39,21 @@ class SN_class():
         self.Tn1 = []
         self.Tn2 = []
         self.T1 = []
+        self.T1del = []
         self.T2 = []
-        self.T = []
-        self.Tdel = []
+        self.T2del = []
+        self.G12del = []
+        self.G12cdel = []
+        self.Tn12del = []
+        self.Tn12cdel = []
+        self.G12 = []
+        self.G12c = []
+        self.Tn12 = []
+        self.Tn12c = []
+        self.T12 = []
+        self.T12del = []
+        self.T12c = []
+        self.T12cdel = []
 
 
 class variable_carrier():
@@ -136,7 +148,7 @@ class variable_carrier():
         self.cPD4 = ((abs(self.I1I2[self.lags0]) + abs(self.Q1Q2[self.lags0])) +
                      (abs(self.Q1I2[self.lags0]) + abs(self.I1Q2[self.lags0])))
 
-    def f1pN(self, array3, d=2):
+    def f1pN(self, array3, d=3):
         '''
         d is the distance of points to search for the peak position around the lags0 pos.
         Insert for example <I1I2> array data where the center peak is not at pos lags0
@@ -363,7 +375,7 @@ def get_residuals(params, vc, pidx, mtype='D1'):
     '''
     returns residuals, and difference between min(data) - min(fit)
     '''
-    vc.Tz = params['Tz1'].value
+    vc.Tz = params['Tz'].value
 
     if mtype == 'D1':
         T1 = params['T1'].value
@@ -401,14 +413,14 @@ def get_residuals(params, vc, pidx, mtype='D1'):
     res2 = cropTrace(res, vc)
     # pmin = np.abs(data.min() - SNf.min())/factor  # adding additional weight to respect min values
     scpos = vc.Ib0
-    p = np.abs(data[scpos-1:scpos+15] - SNf[scpos-1:scpos+15])/factor
-    res2[scpos-1:scpos+15] = p
+    p = np.abs(data[scpos-1:scpos+13] - SNf[scpos-1:scpos+13])/factor
+    res2[scpos-1:scpos+13] = p
 
     # d0 = np.mean(np.sort(data)[:5])/factor
     # d1 = np.mean(np.sort(SNf)[:5])/factor
     # p2 = np.abs(d0-d1)
 
-    return (res2)  # *(1 + p2)
+    return res  # *(1 + p2)
 
 
 def bigstuff(params, vc, pidx):
@@ -465,24 +477,24 @@ def DoSNfits(vc, plotFit=False):
 
     # Why this brainfart mess?? Cross fitting later... :/
 
-    params1.add('Tz', value=vc.Texp/2.0, vary=False, min=0.0, max=0.090)
-    params2.add('Tz', value=vc.Texp/2.0, vary=False, min=0.0, max=0.090)
-    params3.add('Tz', value=vc.Texp/2.0, vary=False, min=0.0, max=0.090)
-    params4.add('Tz', value=vc.Texp/2.0, vary=False, min=0.0, max=0.090)
+    params1.add('Tz', value=0.0, vary=False, min=0.0, max=0.090)
+    params2.add('Tz', value=0.0, vary=False, min=0.0, max=0.090)
+    params3.add('Tz', value=0.0, vary=False, min=0.0, max=0.090)
+    params4.add('Tz', value=0.0, vary=False, min=0.0, max=0.090)
 
-    params1.add('T1', value=vc.Texp/2.0, vary=False, min=0.0001, max=0.1)
+    params1.add('T1', value=vc.Texp, vary=False, min=0.0001, max=0.1)
     params1.add('Tn1', value=8.46, vary=True, min=0.0, max=25.0)
     params1.add('G1', value=7.67e7, vary=True, min=1e3, max=1e17)
 
-    params2.add('T2', value=vc.Texp/2.0, vary=False, min=0.0, max=0.1)
+    params2.add('T2', value=vc.Texp, vary=False, min=0.0, max=0.1)
     params2.add('Tn2', value=5.0, vary=True, min=0.0, max=25.0)
     params2.add('G2', value=7.6e7, vary=True, min=1e3, max=1e17)
 
-    params3.add('T12', value=vc.Texp/2.0, vary=False, min=0.0, max=0.1)
+    params3.add('T12', value=vc.Texp, vary=False, min=0.0, max=0.1)
     params3.add('Tn12', value=8.0, vary=True, min=0.0, max=25.0)
     params3.add('G12', value=8.6e7, vary=True, min=1e3, max=1e17)
 
-    params4.add('T12c', value=vc.Texp/2.0, vary=False, min=0.0, max=0.1)
+    params4.add('T12c', value=vc.Texp, vary=False, min=0.0, max=0.1)
     params4.add('Tn12c', value=5.0, vary=True, min=0.0, max=25.0)
     params4.add('G12c', value=1.6e7, vary=True, min=1e3, max=1e17)
 
@@ -500,12 +512,12 @@ def DoSNfits(vc, plotFit=False):
         # vc.dRm[vc.Ib0] = 0.0  # correct diff/Resistance at SC branch:
 
         result1 = minimize(get_residuals, params1, args=(vc, pidx, 'D1'))
-        print report_fit(result1)
         result2 = minimize(get_residuals, params2, args=(vc, pidx, 'D2'))
-        print report_fit(result2)
         result3 = minimize(get_residuals, params3, args=(vc, pidx, 'D12'))
-        print report_fit(result3)
         result4 = minimize(get_residuals, params4, args=(vc, pidx, 'D12c'))
+        print report_fit(result1)
+        print report_fit(result2)
+        print report_fit(result3)
         print report_fit(result4)
 
         # now fit all of them together:
@@ -529,7 +541,7 @@ def DoSNfits(vc, plotFit=False):
         SNr.T12.append(result3.params['T12'].value)
         SNr.T12del.append(result3.params['T12'].stderr)
         SNr.G12del.append(result3.params['G12'].stderr)
-        SNr.Tn3del.append(result3.params['Tn12'].stderr)
+        SNr.Tn12del.append(result3.params['Tn12'].stderr)
         SNr.G12.append(result3.params['G12'].value)
         SNr.Tn12.append(result3.params['Tn12'].value)
 
@@ -543,8 +555,8 @@ def DoSNfits(vc, plotFit=False):
         if plotFit is True:
             plotSNfit(result1, vc, pidx, 'D1')
             plotSNfit(result2, vc, pidx, 'D2')
-            plotSNfit(result2, vc, pidx, 'D12')
-            plotSNfit(result2, vc, pidx, 'cD12')
+            plotSNfit(result3, vc, pidx, 'D12')
+            plotSNfit(result4, vc, pidx, 'D12c')
 
     # lists to array
     SNr.G1 = np.array(SNr.G1)
