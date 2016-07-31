@@ -129,9 +129,11 @@ class variable_carrier():
         #              1j * ((self.Q1I2[self.lags0]) + (self.I1Q2[self.lags0])))
         # self.phase0 = np.angle(self.psy)
         # self.mag0 =
-        self.cPD1 = ((abs(self.I1I1[self.lags0]) + abs(self.Q1Q1[self.lags0])) +
+        self.cPD1 = (self.I1I1[self.lags0] + self.Q1Q1[self.lags0])
+        self.cPD2 = (self.I2I2[self.lags0] + self.Q2Q2[self.lags0])
+        self.cPD3 = ((abs(self.I1I1[self.lags0]) + abs(self.Q1Q1[self.lags0])) +
                      (abs(self.I2I2[self.lags0]) + abs(self.Q2Q2[self.lags0])))
-        self.cPD2 = ((abs(self.I1I2[self.lags0]) + abs(self.Q1Q2[self.lags0])) +
+        self.cPD4 = ((abs(self.I1I2[self.lags0]) + abs(self.Q1Q2[self.lags0])) +
                      (abs(self.Q1I2[self.lags0]) + abs(self.I1Q2[self.lags0])))
 
     def f1pN(self, array3, d=2):
@@ -357,39 +359,56 @@ def fitfunc(G, Tn, T, f, vc):
     return vc.B * G * (Svi + kB * Tn)
 
 
-def get_residuals(params, vc, pidx, digi='D1'):
+def get_residuals(params, vc, pidx, mtype='D1'):
     '''
     returns residuals, and difference between min(data) - min(fit)
     '''
-    T = params['T'].value
-    vc.Tz = params['Tz'].value
+    vc.Tz = params['Tz1'].value
 
-    if digi == 'D1':
+    if mtype == 'D1':
+        T1 = params['T1'].value
         G1 = params['G1'].value
         Tn1 = params['Tn1'].value
         factor = vc.f1*h*vc.B*G1  # factor to photon #
         data = np.array(vc.cPD1[pidx]) * 1.0
-        SNf = fitfunc(G1, Tn1, T, vc.f1, vc)
+        SNf = fitfunc(G1, Tn1, T1, vc.f1, vc)
 
-    if digi == 'D2':
+    if mtype == 'D2':
+        T2 = params['T2'].value
         G2 = params['G2'].value
         Tn2 = params['Tn2'].value
         factor = vc.f2*h*vc.B*G2
         data = np.array(vc.cPD2[pidx]) * 1.0
-        SNf = fitfunc(G2, Tn2, T, vc.f2, vc)
+        SNf = fitfunc(G2, Tn2, T2, vc.f2, vc)
+
+    if mtype == 'D12':
+        T12 = params['T12'].value
+        G12 = params['G12'].value
+        Tn12 = params['Tn12'].value
+        factor = vc.f1*h*vc.B*G12  # factor to photon #
+        data = np.array(vc.cPD3[pidx]) * 1.0
+        SNf = fitfunc(G12, Tn12, T12, vc.f1, vc)
+
+    if mtype == 'D12c':
+        T12c = params['T12c'].value
+        G12c = params['G12c'].value
+        Tn12c = params['Tn12c'].value
+        factor = vc.f1*h*vc.B*G12c  # factor to photon #
+        data = np.array(vc.cPD4[pidx]) * 1.0
+        SNf = fitfunc(G12c, Tn12c, T12c, vc.f1, vc)
 
     res = np.array(np.abs((data - SNf)/factor))
-    res2 = res  # cropTrace(res, vc)
+    res2 = cropTrace(res, vc)
     # pmin = np.abs(data.min() - SNf.min())/factor  # adding additional weight to respect min values
-    # scpos = vc.Ib0
-    # p = np.abs(data[scpos-1:scpos+15] - SNf[scpos-1:scpos+15])/factor
-    # res2[scpos-1:scpos+15] = p
+    scpos = vc.Ib0
+    p = np.abs(data[scpos-1:scpos+15] - SNf[scpos-1:scpos+15])/factor
+    res2[scpos-1:scpos+15] = p
 
-    d0 = np.mean(np.sort(data)[:5])/factor
-    d1 = np.mean(np.sort(SNf)[:5])/factor
-    p2 = np.abs(d0-d1)
+    # d0 = np.mean(np.sort(data)[:5])/factor
+    # d1 = np.mean(np.sort(SNf)[:5])/factor
+    # p2 = np.abs(d0-d1)
 
-    return (1 + res2)*(1 + p2) - 1
+    return (res2)  # *(1 + p2)
 
 
 def bigstuff(params, vc, pidx):
@@ -439,13 +458,33 @@ def DoSNfits(vc, plotFit=False):
     vc.calc_diff_resistance()
 
     # create fitting parameters
-    params = Parameters()
-    params.add('Tn1', value=8.46, vary=False, min=0.0, max=25.0)
-    params.add('G1', value=7.70e7, vary=True, min=1e3, max=1e17)
-    params.add('Tn2', value=14.7, vary=True, min=0.0, max=25.0)
-    params.add('G2', value=1.6e7, vary=True, min=1e3, max=1e17)
-    params.add('T', value=vc.Texp, vary=False, min=0.0001, max=0.1)
-    params.add('Tz', value=0.0, vary=False, min=0.000, max=0.050)
+    params1 = Parameters()
+    params2 = Parameters()
+    params3 = Parameters()
+    params4 = Parameters()
+
+    # Why this brainfart mess?? Cross fitting later... :/
+
+    params1.add('Tz', value=vc.Texp/2.0, vary=False, min=0.0, max=0.090)
+    params2.add('Tz', value=vc.Texp/2.0, vary=False, min=0.0, max=0.090)
+    params3.add('Tz', value=vc.Texp/2.0, vary=False, min=0.0, max=0.090)
+    params4.add('Tz', value=vc.Texp/2.0, vary=False, min=0.0, max=0.090)
+
+    params1.add('T1', value=vc.Texp/2.0, vary=False, min=0.0001, max=0.1)
+    params1.add('Tn1', value=8.46, vary=True, min=0.0, max=25.0)
+    params1.add('G1', value=7.67e7, vary=True, min=1e3, max=1e17)
+
+    params2.add('T2', value=vc.Texp/2.0, vary=False, min=0.0, max=0.1)
+    params2.add('Tn2', value=5.0, vary=True, min=0.0, max=25.0)
+    params2.add('G2', value=7.6e7, vary=True, min=1e3, max=1e17)
+
+    params3.add('T12', value=vc.Texp/2.0, vary=False, min=0.0, max=0.1)
+    params3.add('Tn12', value=8.0, vary=True, min=0.0, max=25.0)
+    params3.add('G12', value=8.6e7, vary=True, min=1e3, max=1e17)
+
+    params4.add('T12c', value=vc.Texp/2.0, vary=False, min=0.0, max=0.1)
+    params4.add('Tn12c', value=5.0, vary=True, min=0.0, max=25.0)
+    params4.add('G12c', value=1.6e7, vary=True, min=1e3, max=1e17)
 
     for pidx in range(vc.cPD1.shape[0]):
         '''
@@ -454,35 +493,58 @@ def DoSNfits(vc, plotFit=False):
         fits selected data set
         records corresponding fit results into SN_r class values
         '''
-        # vc.dRm = vc.dIVlp[pidx, ::-1]  # select dRm
         vc.dRm = vc.dIVlp[pidx]  # select dRm
         if vc.Ravg > 0.0:
             vc.dRm = np.ones_like(vc.dRm)*vc.Ravg
-        # correct diff/Resistance at SC branch:
-        vc.dRm[vc.Ib0] = 0.0
-        result = minimize(get_residuals, params, args=(vc, pidx, 'D1'))
-        # result.params['T'].vary = True
-        # result.params['G2'].value = result.params['G1'].value
-        result = minimize(get_residuals, result.params, args=(vc, pidx, 'D2'))
+
+        # vc.dRm[vc.Ib0] = 0.0  # correct diff/Resistance at SC branch:
+
+        result1 = minimize(get_residuals, params1, args=(vc, pidx, 'D1'))
+        print report_fit(result1)
+        result2 = minimize(get_residuals, params2, args=(vc, pidx, 'D2'))
+        print report_fit(result2)
+        result3 = minimize(get_residuals, params3, args=(vc, pidx, 'D12'))
+        print report_fit(result3)
+        result4 = minimize(get_residuals, params4, args=(vc, pidx, 'D12c'))
+        print report_fit(result4)
 
         # now fit all of them together:
-        result = minimize(bigstuff, result.params, args=(vc, pidx))
+        # result = minimize(bigstuff, result.params, args=(vc, pidx))
         print 'RF power', vc.d2.lin[pidx]
-        print report_fit(result)
-        SNr.G1del.append(result.params['G1'].stderr)
-        SNr.Tn1del.append(result.params['Tn1'].stderr)
-        SNr.G1.append(result.params['G1'].value)
-        SNr.Tn1.append(result.params['Tn1'].value)
-        SNr.G2del.append(result.params['G2'].stderr)
-        SNr.Tn2del.append(result.params['Tn2'].stderr)
-        SNr.G2.append(result.params['G2'].value)
-        SNr.Tn2.append(result.params['Tn2'].value)
-        SNr.T.append(result.params['T'].value)
-        SNr.Tdel.append(result.params['T'].stderr)
+
+        SNr.T1.append(result1.params['T1'].value)
+        SNr.T1del.append(result1.params['T1'].stderr)
+        SNr.G1del.append(result1.params['G1'].stderr)
+        SNr.Tn1del.append(result1.params['Tn1'].stderr)
+        SNr.G1.append(result1.params['G1'].value)
+        SNr.Tn1.append(result1.params['Tn1'].value)
+
+        SNr.T2.append(result2.params['T2'].value)
+        SNr.T2del.append(result2.params['T2'].stderr)
+        SNr.G2del.append(result2.params['G2'].stderr)
+        SNr.Tn2del.append(result2.params['Tn2'].stderr)
+        SNr.G2.append(result2.params['G2'].value)
+        SNr.Tn2.append(result2.params['Tn2'].value)
+
+        SNr.T12.append(result3.params['T12'].value)
+        SNr.T12del.append(result3.params['T12'].stderr)
+        SNr.G12del.append(result3.params['G12'].stderr)
+        SNr.Tn3del.append(result3.params['Tn12'].stderr)
+        SNr.G12.append(result3.params['G12'].value)
+        SNr.Tn12.append(result3.params['Tn12'].value)
+
+        SNr.T12c.append(result4.params['T12c'].value)
+        SNr.T12cdel.append(result4.params['T12c'].stderr)
+        SNr.G12cdel.append(result4.params['G12c'].stderr)
+        SNr.Tn12cdel.append(result4.params['Tn12c'].stderr)
+        SNr.G12c.append(result4.params['G12c'].value)
+        SNr.Tn12c.append(result4.params['Tn12c'].value)
+
         if plotFit is True:
-            plotSNfit(result, vc, pidx, 'D1')
-        if plotFit is True:
-            plotSNfit(result, vc, pidx, 'D2')
+            plotSNfit(result1, vc, pidx, 'D1')
+            plotSNfit(result2, vc, pidx, 'D2')
+            plotSNfit(result2, vc, pidx, 'D12')
+            plotSNfit(result2, vc, pidx, 'cD12')
 
     # lists to array
     SNr.G1 = np.array(SNr.G1)
@@ -493,6 +555,15 @@ def DoSNfits(vc, plotFit=False):
     SNr.G2del = np.array(SNr.G2del)
     SNr.Tn1del = np.array(SNr.Tn1del)
     SNr.Tn2del = np.array(SNr.Tn2del)
+
+    SNr.G12 = np.array(SNr.G12)
+    SNr.G12c = np.array(SNr.G12c)
+    SNr.Tn12 = np.array(SNr.Tn12)
+    SNr.Tn12c = np.array(SNr.Tn12c)
+    SNr.G12del = np.array(SNr.G12del)
+    SNr.G12cdel = np.array(SNr.G12cdel)
+    SNr.Tn12del = np.array(SNr.Tn12del)
+    SNr.Tn12cdel = np.array(SNr.Tn12cdel)
 
     # Photon numbers hemt input
     SNr.Pi1 = (kB * SNr.Tn1) / (h * vc.f1) + 0.5
@@ -516,33 +587,50 @@ def plotSNfit(result, vc, pidx, digi='D1'):
         pidx power index
         digi = 'D1' or 'D2'
         '''
-    T = result.params['T'].value
     vc.Tz = result.params['Tz'].value
 
     if digi == 'D1':
         f = vc.f1
+        T = result.params['T1'].value
         G = result.params['G1'].value
         Tn = result.params['Tn1'].value
-        factor = f*h*vc.B*G  # factor to photon #
         data = np.array(vc.cPD1[pidx]) * 1.0
 
     if digi == 'D2':
         f = vc.f2
+        T = result.params['T2'].value
         G = result.params['G2'].value
         Tn = result.params['Tn2'].value
-        factor = f*h*vc.B*G
         data = np.array(vc.cPD2[pidx]) * 1.0
 
+    if digi == 'D12':
+        f = vc.f1
+        T = result.params['T12'].value
+        G = result.params['G12'].value
+        Tn = result.params['Tn12'].value
+        data = np.array(vc.cPD3[pidx]) * 1.0
+
+    if digi == 'D12c':
+        f = vc.f1
+        T = result.params['T12c'].value
+        G = result.params['G12c'].value
+        Tn = result.params['Tn12c'].value
+        data = np.array(vc.cPD4[pidx]) * 1.0
+
+    factor = f*h*vc.B*G  # factor to photon #
     SNf = fitfunc(G, Tn, T, f, vc)
     Amp = G*vc.B*kB*Tn
 
     title2 = (digi + ', RF-Drive: ' + str(vc.d2.lin[pidx]))
     dataname = digi + '_' + str(vc.d2.lin[pidx]) + '.dat'
+    gp.c('')
     gp.figure()
-    gp.c('clear')
-    gp.s([vc.I, (data)/factor, (SNf)/factor, np.ones_like(data)*Amp/factor], filename=dataname)
+    # gp.c('clear')
+    gp.s([vc.I*1e6, (data)/factor, (SNf)/factor, np.ones_like(data)*Amp/factor], filename=dataname)
     gp.c('set title "' + title2 + '"')
     gp.c('plot "'+dataname+'" u 1:2 w l t "Data" ')
     gp.c('replot "'+dataname+'" u 1:3 w l t "Fit" ')
     gp.c('replot "'+dataname+'" u 1:4 w l t "Amplifier Noise" ')
     gp.c('save "'+dataname[:-3]+'gn"')
+    gp.pdf(dataname[:-3]+'pdf')
+    print dataname[:-3]+'pdf'
