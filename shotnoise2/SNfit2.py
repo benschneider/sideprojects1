@@ -13,6 +13,7 @@ from scipy.constants import h, e, c  # , pi
 from scipy.ndimage.filters import gaussian_filter1d
 from lmfit import minimize, Parameters, report_fit  # , Parameter
 import PyGnuplot as gp
+import sys, os
 
 '''
 The Two classes SN_class used to store the fit results
@@ -91,9 +92,19 @@ class variable_carrier():
         self.RTR = 1009.1 * 1e3           # Ib Resistance in Ohm
         self.RG = 1000.0                  # Pre Amp gain factor
         self.cvals = {}         # Cross corr dictionary with key value elements
+        self.resultfolder = 'result_folder//'
+        self.inclMin = 15
+        self.Tn1 = 8.46
+        self.Tn2 = 6.0
+        self.G1 = 7.67e7
+        self.G2 = 7.6e7
+        self.T = 0.007
+        self.snr = 1.0
+        self.cpt = 4.0
 
-    def load_and_go(self):
+    def load_and_go(self, gpFolder=False):
         '''
+        # gpfolder is a switch to make gnuplot change folder if required
         simply executes the sub definitions
         loads data,
         normalizes to SI units,
@@ -102,6 +113,12 @@ class variable_carrier():
         self.loaddata()
         self.loadCcor()
         self.norm_to_SI()
+        self.make_cvals()
+        if not os.path.exists(self.resultfolder):
+            os.makedirs(self.resultfolder)
+
+        if gpFolder:
+            gp.c('cd "' + self.resultfolder + '"')
 
     def loaddata(self):
         '''
@@ -148,7 +165,7 @@ class variable_carrier():
         self.cPD4 = ((abs(self.I1I2[self.lags0]) + abs(self.Q1Q2[self.lags0])) +
                      (abs(self.Q1I2[self.lags0]) + abs(self.I1Q2[self.lags0])))
 
-    def f1pN(self, array3, d=3):
+    def f1pN(self, array3, d=1):
         '''
         d is the distance of points to search for the peak position around the lags0 pos.
         Insert for example <I1I2> array data where the center peak is not at pos lags0
@@ -157,9 +174,10 @@ class variable_carrier():
         for i in range(array3.shape[2]):
             for j in range(array3.shape[1]):
                 tArray = array3[:, j, i]*1.0  # copy temp work array
-                distance = (np.argmax(np.abs(tArray[self.lags0-d:self.lags0+d+1])) - d)*-1
-                array3[:, j, i] = np.roll(tArray, distance)
-
+                # Only roll the data if the signal to Noise ratio is larger than 2
+                if np.max(np.abs(tArray[self.lags0-d:self.lags0+d+1])) > 2.0*np.var(tArray):
+                    distance = (np.argmax(np.abs(tArray[self.lags0-d:self.lags0+d+1])) - d)*-1
+                    array3[:, j, i] = np.roll(tArray, distance)
         return array3
 
     def norm_to_SI(self):
@@ -185,7 +203,7 @@ class variable_carrier():
             self.dIVlp = abs(self.dIV)
         # self.dIVlp[self.dIVlp > 100.0] = 0.0
 
-    def make_cvals(self, cpt=5, snr=2):
+    def make_cvals(self):
         '''
         Using this function to obtain the amount of noise present
         in the background while ignoring the regions where the cross corr...
@@ -199,19 +217,30 @@ class variable_carrier():
         V = np.zeros(8)
         for x2 in range(self.d2.pt):
             for x3 in range(self.d3.pt):
-                S[0], N[0] = get_SNR(self.I1I1[:, x2, x3], cpt)
-                S[1], N[1] = get_SNR(self.Q1Q1[:, x2, x3], cpt)
-                S[2], N[2] = get_SNR(self.I2I2[:, x2, x3], cpt)
-                S[3], N[3] = get_SNR(self.Q2Q2[:, x2, x3], cpt)
+                S[0], N[0] = get_SNR(self.I1I1[:, x2, x3], self.cpt)
+                S[1], N[1] = get_SNR(self.Q1Q1[:, x2, x3], self.cpt)
+                S[2], N[2] = get_SNR(self.I2I2[:, x2, x3], self.cpt)
+                S[3], N[3] = get_SNR(self.Q2Q2[:, x2, x3], self.cpt)
                 V[:4] = S[:4]
-                S[4], N[4] = get_SNR(self.I1I2[:, x2, x3], cpt)
-                S[5], N[5] = get_SNR(self.I1Q2[:, x2, x3], cpt)
-                S[6], N[6] = get_SNR(self.Q1I2[:, x2, x3], cpt)
-                S[7], N[7] = get_SNR(self.Q1Q2[:, x2, x3], cpt)
-                V[4] = S[4] if abs(S[4]) > snr * N[4] else 0.0
-                V[5] = S[5] if abs(S[5]) > snr * N[5] else 0.0
-                V[6] = S[6] if abs(S[6]) > snr * N[6] else 0.0
-                V[7] = S[7] if abs(S[7]) > snr * N[7] else 0.0
+                S[4], N[4] = get_SNR(self.I1I2[:, x2, x3], self.cpt)
+                S[5], N[5] = get_SNR(self.I1Q2[:, x2, x3], self.cpt)
+                S[6], N[6] = get_SNR(self.Q1I2[:, x2, x3], self.cpt)
+                S[7], N[7] = get_SNR(self.Q1Q2[:, x2, x3], self.cpt)
+                # Max values
+                # V[4] = np.sign(S[4]) * (abs(S[4]) + abs(N[4])) if (abs(S[4]) - self.snr*abs(N[4])) > 0.0 else 0.0
+                # V[5] = np.sign(S[5]) * (abs(S[5]) + abs(N[5])) if (abs(S[5]) - self.snr*abs(N[5])) > 0.0 else 0.0
+                # V[6] = np.sign(S[6]) * (abs(S[6]) + abs(N[6])) if (abs(S[6]) - self.snr*abs(N[6])) > 0.0 else 0.0
+                # V[7] = np.sign(S[7]) * (abs(S[7]) + abs(N[7])) if (abs(S[7]) - self.snr*abs(N[7])) > 0.0 else 0.0
+                # Min Values
+                # V[4] = np.sign(S[4]) * (abs(S[4]) - abs(N[4])) if (abs(S[4]) - self.snr*abs(N[4])) > 0.0 else 0.0
+                # V[5] = np.sign(S[5]) * (abs(S[5]) - abs(N[5])) if (abs(S[5]) - self.snr*abs(N[5])) > 0.0 else 0.0
+                # V[6] = np.sign(S[6]) * (abs(S[6]) - abs(N[6])) if (abs(S[6]) - self.snr*abs(N[6])) > 0.0 else 0.0
+                # V[7] = np.sign(S[7]) * (abs(S[7]) - abs(N[7])) if (abs(S[7]) - self.snr*abs(N[7])) > 0.0 else 0.0
+                # Med Values
+                V[4] = S[4] if (abs(S[4]) - self.snr*abs(N[4])) > 0.0 else 0.0
+                V[5] = S[5] if (abs(S[5]) - self.snr*abs(N[5])) > 0.0 else 0.0
+                V[6] = S[6] if (abs(S[6]) - self.snr*abs(N[6])) > 0.0 else 0.0
+                V[7] = S[7] if (abs(S[7]) - self.snr*abs(N[7])) > 0.0 else 0.0
                 self.Sarr[:, x2, x3] = S
                 self.Narr[:, x2, x3] = N
                 self.Varr[:, x2, x3] = V
@@ -234,7 +263,7 @@ def calU(z1, lags0, cpt):
     '''
     z2 = z1[:lags0 - cpt] * 1.0
     z3 = z1[lags0 + cpt:] * 1.0
-    return abs(np.sqrt(np.var(np.concatenate([z2, z3]))))/2.0
+    return abs(np.sqrt(np.var(np.concatenate([z2, z3]))))
 
 
 def getOffset(z1, lags0, cpt):
@@ -246,6 +275,22 @@ def getOffset(z1, lags0, cpt):
     z2 = z1[:lags0 - cpt] * 1.0
     z3 = z1[lags0 + cpt:] * 1.0
     return abs(np.mean(np.concatenate([z2, z3])))
+
+
+def find_absPeakPos(someArray, dist=1):
+    '''
+    finds within a short range around the center of
+    an array the peak/ dip value position
+    and returns value at the position.
+    1. abs(someArray)
+    2. crop someArray with the range
+    3. max(someArray)
+    assumes that the mean of someArray = 0
+    '''
+    Array = np.abs(someArray * 1.0)
+    A0 = int(len(Array)/2)  # A0 center pos (round down)
+    pos = np.argmax(Array[A0-dist:A0+dist+1])+A0-dist
+    return pos
 
 
 def find_switch(array, threshold=1e-9):
@@ -267,22 +312,6 @@ def find_switch(array, threshold=1e-9):
                 return idx
             idx = mm
         a = val
-
-
-def find_absPeakPos(someArray, dist=1):
-    '''
-    finds within a short range around the center of
-    an array the peak/ dip value position
-    and returns value at the position.
-    1. abs(someArray)
-    2. crop someArray with the range
-    3. max(someArray)
-    assumes that the mean of someArray = 0
-    '''
-    Array = np.abs(someArray * 1.0)
-    A0 = int(len(Array)/2)  # A0 center pos (round down)
-    pos = np.argmax(Array[A0-dist:A0+dist+1])+A0-dist
-    return pos
 
 
 def xderiv(d2MAT, dx=1.0, axis=0):
@@ -412,15 +441,17 @@ def get_residuals(params, vc, pidx, mtype='D1'):
     res = np.array(np.abs((data - SNf)/factor))
     res2 = cropTrace(res, vc)
     # pmin = np.abs(data.min() - SNf.min())/factor  # adding additional weight to respect min values
-    scpos = vc.Ib0
-    p = np.abs(data[scpos-1:scpos+13] - SNf[scpos-1:scpos+13])/factor
-    res2[scpos-1:scpos+13] = p
+    # scpos = vc.Ib0
+    # p = np.abs(data[scpos-1:scpos+13] - SNf[scpos-1:scpos+13])/factor
+    # res2[scpos-1:scpos+13] = p
 
-    # d0 = np.mean(np.sort(data)[:5])/factor
-    # d1 = np.mean(np.sort(SNf)[:5])/factor
-    # p2 = np.abs(d0-d1)
+    p2 = 0.0
+    if vc.inclMin > 0:
+        d0 = np.mean(np.sort(data)[:vc.inclMin])/factor
+        d1 = np.mean(np.sort(SNf)[:vc.inclMin])/factor
+        p2 = np.abs(d0-d1)  # obtain the differences of the lowest values
 
-    return res  # *(1 + p2)
+    return res2 * (1.0 + p2 * 1.0)
 
 
 def bigstuff(params, vc, pidx):
@@ -482,19 +513,19 @@ def DoSNfits(vc, plotFit=False):
     params3.add('Tz', value=0.0, vary=False, min=0.0, max=0.090)
     params4.add('Tz', value=0.0, vary=False, min=0.0, max=0.090)
 
-    params1.add('T1', value=vc.Texp, vary=False, min=0.0001, max=0.1)
-    params1.add('Tn1', value=8.46, vary=True, min=0.0, max=25.0)
-    params1.add('G1', value=7.67e7, vary=True, min=1e3, max=1e17)
+    params1.add('T1', value=vc.T, vary=False, min=0.0001, max=0.1)
+    params1.add('Tn1', value=vc.Tn1, vary=True, min=0.0, max=25.0)
+    params1.add('G1', value=vc.G1, vary=True, min=1e3, max=1e17)
 
-    params2.add('T2', value=vc.Texp, vary=False, min=0.0, max=0.1)
-    params2.add('Tn2', value=5.0, vary=True, min=0.0, max=25.0)
-    params2.add('G2', value=7.6e7, vary=True, min=1e3, max=1e17)
+    params2.add('T2', value=vc.T, vary=False, min=0.0, max=0.1)
+    params2.add('Tn2', value=vc.Tn2, vary=True, min=0.0, max=25.0)
+    params2.add('G2', value=vc.G2, vary=True, min=1e3, max=1e17)
 
-    params3.add('T12', value=vc.Texp, vary=False, min=0.0, max=0.1)
+    params3.add('T12', value=vc.T, vary=False, min=0.0, max=0.1)
     params3.add('Tn12', value=8.0, vary=True, min=0.0, max=25.0)
     params3.add('G12', value=8.6e7, vary=True, min=1e3, max=1e17)
 
-    params4.add('T12c', value=vc.Texp, vary=False, min=0.0, max=0.1)
+    params4.add('T12c', value=vc.T, vary=False, min=0.0, max=0.1)
     params4.add('Tn12c', value=5.0, vary=True, min=0.0, max=25.0)
     params4.add('G12c', value=1.6e7, vary=True, min=1e3, max=1e17)
 
@@ -560,21 +591,20 @@ def DoSNfits(vc, plotFit=False):
 
     # lists to array
     SNr.G1 = np.array(SNr.G1)
-    SNr.G2 = np.array(SNr.G2)
-    SNr.Tn1 = np.array(SNr.Tn1)
-    SNr.Tn2 = np.array(SNr.Tn2)
     SNr.G1del = np.array(SNr.G1del)
+    SNr.G2 = np.array(SNr.G2)
     SNr.G2del = np.array(SNr.G2del)
-    SNr.Tn1del = np.array(SNr.Tn1del)
-    SNr.Tn2del = np.array(SNr.Tn2del)
-
     SNr.G12 = np.array(SNr.G12)
-    SNr.G12c = np.array(SNr.G12c)
-    SNr.Tn12 = np.array(SNr.Tn12)
-    SNr.Tn12c = np.array(SNr.Tn12c)
     SNr.G12del = np.array(SNr.G12del)
+    SNr.G12c = np.array(SNr.G12c)
     SNr.G12cdel = np.array(SNr.G12cdel)
+    SNr.Tn1 = np.array(SNr.Tn1)
+    SNr.Tn1del = np.array(SNr.Tn1del)
+    SNr.Tn2 = np.array(SNr.Tn2)
+    SNr.Tn2del = np.array(SNr.Tn2del)
+    SNr.Tn12 = np.array(SNr.Tn12)
     SNr.Tn12del = np.array(SNr.Tn12del)
+    SNr.Tn12c = np.array(SNr.Tn12c)
     SNr.Tn12cdel = np.array(SNr.Tn12cdel)
 
     # Photon numbers hemt input
@@ -590,7 +620,13 @@ def DoSNfits(vc, plotFit=False):
     SNr.Pn2 = SNr.G2 * vc.B * SNr.Pi2 * (h * vc.f2)
     SNr.Pn2del = (SNr.Pn2 * np.sqrt((SNr.G2del / SNr.G2)**2 +
                                     (SNr.Tn2del / SNr.Tn2)**2))
-    return SNr
+
+    with open(vc.resultfolder + 'results.txt', 'w+') as output:
+        for variable in dir(SNr):
+            value = getattr(SNr, variable)
+            output.write(variable+':'+str(value)+'\n')
+
+    return SNr, result1, result2, result3, result4
 
 
 def plotSNfit(result, vc, pidx, digi='D1'):
@@ -633,16 +669,20 @@ def plotSNfit(result, vc, pidx, digi='D1'):
     SNf = fitfunc(G, Tn, T, f, vc)
     Amp = G*vc.B*kB*Tn
 
-    title2 = (digi + ', RF-Drive: ' + str(vc.d2.lin[pidx]))
+    title2 = (digi + ', RF-Drive ' + str(vc.d2.lin[pidx]) + ' G ' + str(np.round(G/1e7, 2)) +
+              'e7 = ' + str(np.round(np.log10(G)*10.0, 2)) + 'dB  T ' + str(np.round(Tn, 2)) + 'K')
     dataname = digi + '_' + str(vc.d2.lin[pidx]) + '.dat'
     gp.c('')
     gp.figure()
     # gp.c('clear')
-    gp.s([vc.I*1e6, (data)/factor, (SNf)/factor, np.ones_like(data)*Amp/factor], filename=dataname)
+    gp.s([vc.I*1e6, (data)/factor, (SNf)/factor, np.ones_like(data)*Amp/factor],
+         filename=vc.resultfolder+dataname)
     gp.c('set title "' + title2 + '"')
-    gp.c('plot "'+dataname+'" u 1:2 w l t "Data" ')
-    gp.c('replot "'+dataname+'" u 1:3 w l t "Fit" ')
-    gp.c('replot "'+dataname+'" u 1:4 w l t "Amplifier Noise" ')
-    gp.c('save "'+dataname[:-3]+'gn"')
+    gp.c('set xrange[-19:19]')
+    gp.c('set key center top')
+    gp.c('plot "' + dataname + '" u 1:2 w l t "Data" ')
+    gp.c('replot "' + dataname + '" u 1:3 w l t "Fit" ')
+    gp.c('replot "' + dataname + '" u 1:4 w l t "Amplifier Noise" ')
+    gp.c('save "' + dataname[:-3] + 'gn"')
     gp.pdf(dataname[:-3]+'pdf')
     print dataname[:-3]+'pdf'
