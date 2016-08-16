@@ -5,30 +5,6 @@ import scipy.signal as signal
 from scipy.signal.signaltools import _next_regular
 from numpy.fft import rfftn, irfftn
 
-# plt.ion()
-#
-# fnum = '1150'
-# file1 = 'RawON.hdf5'
-# folder1 = 'data3//'+fnum+'_ON//'
-# on = storehdf5(folder1 + file1)
-# on.open_f(mode='r')
-#
-# file2 = 'RawOFF.hdf5'
-# folder2 = 'data3//'+fnum+'_OFF//'
-# off = storehdf5(folder2 + file2)
-# off.open_f(mode='r')
-#
-# d1 = on.h5.root
-# d2 = off.h5.root
-#
-# f1 = 4.8e9
-# f2 = 4.1e9
-# G1 = 602.0e7
-# G2 = 685.35e7
-# B = 1e5
-# Fac1 = (h*f1*G1*B)**0.5
-# Fac2 = (h*f2*G2*B)**0.5
-
 
 def load_dataset(dispData, dicData, ext='hdf5_on'):
     '''Reads from the dictionary which data set was selected'''
@@ -39,11 +15,11 @@ def load_dataset(dispData, dicData, ext='hdf5_on'):
 def prep_data(dispData, dicData):
     on = dicData['hdf5_on']
     off = dicData['hdf5_off']
-    f1 = dispData['Frequency 1']
-    f2 = dispData['Frequency 2']
-    G1 = dispData['Gain 1']
-    G2 = dispData['Gain 2']
-    B = dispData['Bandwidth']
+    f1 = dispData['f1']
+    f2 = dispData['f2']
+    G1 = dispData['g1']
+    G2 = dispData['g2']
+    B = dispData['B']
     Fac1 = (h*f1*G1*B)**0.5
     Fac2 = (h*f2*G2*B)**0.5
     return on, off, Fac1, Fac2
@@ -142,12 +118,6 @@ def getCovMatrix(I1, Q1, I2, Q2, lags=20):
 
 
 def f1pN2(tArray, d=1):
-    '''
-    d is the distance of points to search for the peak position around the lags0 pos.
-    Insert for example <I1I2> array data where the center peak is not at pos lags0
-    it returns the distance
-    '''
-    # Only roll the data if the signal to Noise ratio is larger than 2
     lags0 = np.round(len(tArray)/2.0)
     distance = 0
     if np.max(np.abs(tArray[lags0-d:lags0+d+1])) > 2.0*np.var(tArray):
@@ -156,66 +126,26 @@ def f1pN2(tArray, d=1):
 
 
 def f1pN(tArray, lags0, d=1):
-    '''
-    d is the distance of points to search for the peak position around the lags0 pos.
-    Insert for example <I1I2> array data where the center peak is not at pos lags0
-    it returns the distance
-    '''
-    # Only roll the data if the signal to Noise ratio is larger than 2
     return (np.argmax(tArray[lags0-d:lags0+d+1]) - d)*-1
 
 
 def correctPhase(dispData, dicData):
     on, off, Fac1, Fac2 = prep_data(dispData, dicData)
     lags = dispData['lags']
-    # CovMat = getCovMatrix(on.I1, on.Q1, on.I2, on.Q2, lags=lags)
-    # calc <I1I2>, <I1Q2>, Q1I2, Q1Q2
-    # dI1I2 = f1pN(CovMat[0])
-    # dQ1Q2 = f1pN(CovMat[1])
-    # dI1Q2 = f1pN(CovMat[2])
-    # dQ1I2 = f1pN(CovMat[3])
-    # dMag = f1pN(CovMat[4], lags)
-    # print 'single trig jitter: ', 'I1I2', dI1I2, 'Q1Q2', dQ1Q2, 'I1Q2', dI1Q2, 'Q1I2', dQ1I2
-    # on.I1 = np.roll(on.I1, dMag)  # Correct 1pt trigger jitter
-    # on.Q1 = np.roll(on.Q1, dMag)
-    # # on.I2 = np.roll(on.I2, dI1I2-dQ1I2)
-    # # on.Q2 = np.roll(on.Q2, dI1Q2+dQ1Q2)
     CovMat = getCovMatrix(on.I1, on.Q1, on.I2, on.Q2)
-    # dI1I2 = f1pN(CovMat[0])  # check that 1pt trigger jitter is gone
-    # dQ1Q2 = f1pN(CovMat[1])
-    # dI1Q2 = f1pN(CovMat[2])
-    # dQ1I2 = f1pN(CovMat[3])
-    # print 'single trig jitter: ', dI1I2, dQ1Q2, dI1Q2, dQ1I2
-    # fix phase rotation (I1 I2 Q1 Q2)  np.angle(Q1+1j*I1) r = np.abs(Q1+1j*I1)  (r * e(i*phi))
     offset = CovMat[5][lags]  # want this phase angle to be zero
     phase = np.angle(1j*on.Q1 + on.I1)  # phase rotation
-    # phase2 = np.angle(1j*off.Q1 + off.I1)  # phase rotation
     new = np.abs(1j*on.Q1 + on.I1)*np.exp(1j*(phase - offset))
-    # new2 = np.abs(1j*off.Q1 + off.I1)*np.exp(1j*(phase2 - offset))
     on.I1 = np.real(new)
     on.Q1 = np.imag(new)
-    # off.I1 = np.real(new2)
-    # off.Q1 = np.imag(new2)
 
 
-def plot_hist(on, off):
-
-    plt.figure(1)
-    plt.imshow(on.IIdmap, interpolation='nearest', origin='low',
-               extent=[on.xII[0], on.xII[-1], on.yII[0], on.yII[-1]])
-    plt.title('I1I2')
-    plt.figure(2)
-    plt.imshow(on.QQdmap, interpolation='nearest', origin='low',
-               extent=[on.xQQ[0], on.xQQ[-1], on.yQQ[0], on.yQQ[-1]])
-    plt.title('Q1Q2')
-    plt.figure(3)
-    plt.imshow(on.IQdmap, interpolation='nearest', origin='low',
-               extent=[on.xIQ[0], on.xIQ[-1], on.yIQ[0], on.yIQ[-1]])
-    plt.title('I1Q2')
-    plt.figure(4)
-    plt.imshow(on.QIdmap, interpolation='nearest', origin='low',
-               extent=[on.xQI[0], on.xQI[-1], on.yQI[0], on.yQI[-1]])
-    plt.title('Q1I2')
+def process(dispData, dicData):
+    assignRaw(dispData, dicData)
+    makeheader(dispData, dicData)
+    assignRaw(dispData, dicData)
+    correctPhase(dispData, dicData)
+    makehist2d(dispData, dicData)  # all data is stored in dicData
 
 # mapdim = [200, 200]  # decide map dimensions
 # leng = 200  # how many points to take into

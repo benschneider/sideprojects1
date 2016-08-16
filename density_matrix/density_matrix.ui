@@ -6,16 +6,26 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>588</width>
-    <height>362</height>
+    <width>856</width>
+    <height>586</height>
    </rect>
+  </property>
+  <property name="font">
+   <font>
+    <weight>75</weight>
+    <italic>true</italic>
+    <bold>true</bold>
+   </font>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
+  <property name="unifiedTitleAndToolBarOnMac">
+   <bool>false</bool>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <property name="sizePolicy">
-    <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+    <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
      <horstretch>0</horstretch>
      <verstretch>0</verstretch>
     </sizepolicy>
@@ -23,7 +33,7 @@
    <property name="minimumSize">
     <size>
      <width>175</width>
-     <height>100</height>
+     <height>280</height>
     </size>
    </property>
    <layout class="QHBoxLayout" name="horizontalLayout_2">
@@ -34,66 +44,97 @@
      <number>1</number>
     </property>
     <item>
-     <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0,0,0,0">
-      <property name="spacing">
-       <number>0</number>
-      </property>
-      <property name="sizeConstraint">
-       <enum>QLayout::SetMaximumSize</enum>
-      </property>
-      <property name="bottomMargin">
-       <number>0</number>
-      </property>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
       <item>
-       <widget class="QLineEdit" name="selectNum">
-        <property name="minimumSize">
-         <size>
-          <width>175</width>
-          <height>0</height>
-         </size>
+       <widget class="QTableWidget" name="tableWidget">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
         </property>
-        <property name="text">
-         <string>1</string>
+        <property name="layoutDirection">
+         <enum>Qt::LeftToRight</enum>
         </property>
+        <property name="autoFillBackground">
+         <bool>false</bool>
+        </property>
+        <property name="frameShape">
+         <enum>QFrame::NoFrame</enum>
+        </property>
+        <property name="frameShadow">
+         <enum>QFrame::Plain</enum>
+        </property>
+        <row>
+         <property name="text">
+          <string>Frequency 1</string>
+         </property>
+        </row>
+        <row>
+         <property name="text">
+          <string>Frequency 2</string>
+         </property>
+        </row>
+        <row>
+         <property name="text">
+          <string>Gain 1</string>
+         </property>
+        </row>
+        <row>
+         <property name="text">
+          <string>Gain 2</string>
+         </property>
+        </row>
+        <row>
+         <property name="text">
+          <string>Bandwidth</string>
+         </property>
+        </row>
+        <row>
+         <property name="text">
+          <string>Selected</string>
+         </property>
+        </row>
+        <row>
+         <property name="text">
+          <string>Lags</string>
+         </property>
+        </row>
+        <row>
+         <property name="text">
+          <string>x-axis range</string>
+         </property>
+        </row>
+        <row>
+         <property name="text">
+          <string>y-axis range</string>
+         </property>
+        </row>
+        <column>
+         <property name="text">
+          <string> Value</string>
+         </property>
+        </column>
+        <item row="2" column="0">
+         <property name="text">
+          <string notr="true"/>
+         </property>
+         <property name="textAlignment">
+          <set>AlignLeft|AlignVCenter</set>
+         </property>
+        </item>
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="selectBtn">
-        <property name="minimumSize">
-         <size>
-          <width>175</width>
-          <height>0</height>
-         </size>
+       <widget class="QPushButton" name="makeHistogram">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
         </property>
-        <property name="text">
-         <string>Select</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QListWidget" name="selectDat">
-        <property name="minimumSize">
-         <size>
-          <width>175</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="isWrapping" stdset="0">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="makeFigure">
         <property name="text">
          <string>Make Histogramm</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="ExitButton">
-        <property name="text">
-         <string>Exit</string>
         </property>
        </widget>
       </item>
@@ -105,13 +146,74 @@
        <number>0</number>
       </property>
       <item>
-       <widget class="QWidget" name="dWindow1" native="true">
+       <widget class="QToolBox" name="toolBox">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Expanding" vsizetype="MinimumExpanding">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="frameShape">
+         <enum>QFrame::NoFrame</enum>
+        </property>
+        <property name="currentIndex">
+         <number>2</number>
+        </property>
+        <widget class="QWidget" name="page_0">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>0</y>
+           <width>425</width>
+           <height>467</height>
+          </rect>
+         </property>
+         <attribute name="label">
+          <string>Histogram</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="verticalLayout_3">
+          <item>
+           <layout class="QVBoxLayout" name="HistLayout"/>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="page_1">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>0</y>
+           <width>425</width>
+           <height>467</height>
+          </rect>
+         </property>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="layoutDirection">
+          <enum>Qt::LeftToRight</enum>
+         </property>
+         <attribute name="label">
+          <string>Correlation</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="verticalLayout">
+          <item>
+           <layout class="QVBoxLayout" name="CorrLayout"/>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="page_2">
+         <attribute name="label">
+          <string>Memory Values</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="verticalLayout_4">
+          <item>
+           <widget class="QListWidget" name="selectDat"/>
+          </item>
+         </layout>
+        </widget>
        </widget>
       </item>
      </layout>
@@ -123,9 +225,12 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>588</width>
+     <width>856</width>
      <height>22</height>
     </rect>
+   </property>
+   <property name="nativeMenuBar">
+    <bool>false</bool>
    </property>
    <widget class="QMenu" name="menuFile">
     <property name="title">
