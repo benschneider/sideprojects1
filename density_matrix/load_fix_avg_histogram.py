@@ -10,14 +10,16 @@ _rfft_lock = threading.Lock()
 
 plt.ion()
 
+folder0 = '/Volumes/QDP-Backup-2/BenS/DCE2015-16/data_May20/'
+
 fnum = '1150'
 file1 = 'RawON.hdf5'
-folder1 = 'data3//'+fnum+'_ON//'
+folder1 = folder0+fnum+'_ON//'
 on = storehdf5(folder1 + file1)
 on.open_f(mode='r')
 
 file2 = 'RawOFF.hdf5'
-folder2 = 'data3//'+fnum+'_OFF//'
+folder2 = folder0+fnum+'_OFF//'
 off = storehdf5(folder2 + file2)
 off.open_f(mode='r')
 
@@ -183,7 +185,7 @@ def correctPhase():
     # dQ1I2 = f1pN(CovMat[3])
     # print 'single trig jitter: ', dI1I2, dQ1Q2, dI1Q2, dQ1I2
     # fix phase rotation (I1 I2 Q1 Q2)  np.angle(Q1+1j*I1) r = np.abs(Q1+1j*I1)  (r * e(i*phi))
-    offset = CovMat[5][lags]  # want this phase angle to be zero
+    offset = CovMat[5][lags-1]  # want this phase angle to be zero
     phase = np.angle(1j*on.Q1 + on.I1)  # phase rotation
     #phase2 = np.angle(1j*off.Q1 + off.I1)  # phase rotation
     new = np.abs(1j*on.Q1 + on.I1)*np.exp(1j*(phase - offset))

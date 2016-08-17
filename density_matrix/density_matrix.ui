@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>856</width>
-    <height>586</height>
+    <width>880</width>
+    <height>576</height>
    </rect>
   </property>
   <property name="font">
@@ -48,10 +48,16 @@
       <item>
        <widget class="QTableWidget" name="tableWidget">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+         <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
         </property>
         <property name="layoutDirection">
          <enum>Qt::LeftToRight</enum>
@@ -102,12 +108,27 @@
         </row>
         <row>
          <property name="text">
-          <string>x-axis range</string>
+          <string>Histogram x-bins</string>
          </property>
         </row>
         <row>
          <property name="text">
-          <string>y-axis range</string>
+          <string>Histogram y-bins</string>
+         </property>
+        </row>
+        <row>
+         <property name="text">
+          <string>Phase correction</string>
+         </property>
+        </row>
+        <row>
+         <property name="text">
+          <string>Trigger correction</string>
+         </property>
+        </row>
+        <row>
+         <property name="text">
+          <string>FFT-Filter</string>
          </property>
         </row>
         <column>
@@ -134,7 +155,7 @@
          </sizepolicy>
         </property>
         <property name="text">
-         <string>Make Histogramm</string>
+         <string>Calculate</string>
         </property>
        </widget>
       </item>
@@ -157,15 +178,15 @@
          <enum>QFrame::NoFrame</enum>
         </property>
         <property name="currentIndex">
-         <number>2</number>
+         <number>3</number>
         </property>
-        <widget class="QWidget" name="page_0">
+        <widget class="QWidget" name="page_1">
          <property name="geometry">
           <rect>
            <x>0</x>
            <y>0</y>
-           <width>425</width>
-           <height>467</height>
+           <width>608</width>
+           <height>426</height>
           </rect>
          </property>
          <attribute name="label">
@@ -177,13 +198,13 @@
           </item>
          </layout>
         </widget>
-        <widget class="QWidget" name="page_1">
+        <widget class="QWidget" name="page_2">
          <property name="geometry">
           <rect>
            <x>0</x>
            <y>0</y>
-           <width>425</width>
-           <height>467</height>
+           <width>608</width>
+           <height>426</height>
           </rect>
          </property>
          <property name="sizePolicy">
@@ -196,7 +217,7 @@
           <enum>Qt::LeftToRight</enum>
          </property>
          <attribute name="label">
-          <string>Correlation</string>
+          <string>Cross Correlation</string>
          </attribute>
          <layout class="QVBoxLayout" name="verticalLayout">
           <item>
@@ -204,7 +225,25 @@
           </item>
          </layout>
         </widget>
-        <widget class="QWidget" name="page_2">
+        <widget class="QWidget" name="page_3">
+         <attribute name="label">
+          <string>Two Mode Squeezing</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="verticalLayout_5">
+          <item>
+           <layout class="QVBoxLayout" name="TMSLayout"/>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="MemPage">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>0</y>
+           <width>608</width>
+           <height>426</height>
+          </rect>
+         </property>
          <attribute name="label">
           <string>Memory Values</string>
          </attribute>
@@ -225,7 +264,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>856</width>
+     <width>880</width>
      <height>22</height>
     </rect>
    </property>
@@ -238,19 +277,36 @@
     </property>
     <addaction name="open_hdf5_on"/>
     <addaction name="open_hdf5_off"/>
+    <addaction name="save_mtx_as"/>
     <addaction name="save_mtx"/>
     <addaction name="action_Quit"/>
    </widget>
+   <widget class="QMenu" name="menuPrevious">
+    <property name="title">
+     <string>Previous</string>
+    </property>
+    <addaction name="actionSavePrev"/>
+    <addaction name="actionLoadPrev"/>
+   </widget>
+   <widget class="QMenu" name="menuExternal">
+    <property name="title">
+     <string>External</string>
+    </property>
+    <addaction name="actionMtx_files"/>
+    <addaction name="action2d_plots"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuPrevious"/>
+   <addaction name="menuExternal"/>
   </widget>
   <action name="open_hdf5_off">
    <property name="text">
     <string>Open hdf5 (OFF)</string>
    </property>
   </action>
-  <action name="save_mtx">
+  <action name="save_mtx_as">
    <property name="text">
-    <string>Save mtx</string>
+    <string>Save mtx as ..</string>
    </property>
   </action>
   <action name="action_Quit">
@@ -261,6 +317,31 @@
   <action name="open_hdf5_on">
    <property name="text">
     <string>Open hdf5 (ON)</string>
+   </property>
+  </action>
+  <action name="actionSavePrev">
+   <property name="text">
+    <string>Save</string>
+   </property>
+  </action>
+  <action name="actionLoadPrev">
+   <property name="text">
+    <string>Load</string>
+   </property>
+  </action>
+  <action name="actionMtx_files">
+   <property name="text">
+    <string>Spyview mtx</string>
+   </property>
+  </action>
+  <action name="action2d_plots">
+   <property name="text">
+    <string>Gnuplot (inactive)</string>
+   </property>
+  </action>
+  <action name="save_mtx">
+   <property name="text">
+    <string>Save mtx</string>
    </property>
   </action>
  </widget>

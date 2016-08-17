@@ -26,8 +26,8 @@ def prep_data(dispData, dicData):
 
 
 def assignRaw(dispData, dicData):
-    select = dispData['select']
     on, off, Fac1, Fac2 = prep_data(dispData, dicData)
+    select = dispData['select']
     d1 = on.h5.root
     d2 = off.h5.root
     on.I1 = d1.D12raw[select][0]/Fac1  # units in sqrt Photon numbers
@@ -38,6 +38,8 @@ def assignRaw(dispData, dicData):
     off.Q1 = d2.D12raw[select][1]/Fac1
     off.I2 = d2.D12raw[select][2]/Fac2
     off.Q2 = d2.D12raw[select][3]/Fac2
+    dispData['DataLength per Section'] = len(on.I1)
+    dispData['Current Section i, j, k'] = d1.ijk[select]
 
 
 def makehist2d(dispData, dicData):
@@ -73,20 +75,20 @@ def makeheader(dispData, dicData):
                    ',I2,' + str(on.yQI[0]) + ',' + str(on.yQI[-2]) + ',DPow,2.03,0.03')
 
 
-def getCovMatrix(I1, Q1, I2, Q2, lags=20):
+def getCovMatrix(I1, Q1, I2, Q2, lags=20, hp=True):
     # calc <I1I2>, <I1Q2>, Q1I2, Q1Q2
     lags = int(lags)
     I1 = np.asarray(I1)
     Q1 = np.asarray(Q1)
     I2 = np.asarray(I2)
     Q2 = np.asarray(Q2)
-    CovMat = np.zeros([6, lags*2-1])
-    start = len(I1*2-1)-lags
-    stop = len(I1*2-1)-1+lags
+    CovMat = np.zeros([6, lags*2+1])
+    start = len(I1*2-1)-lags-1
+    stop = len(I1*2-1)+lags
     sI1 = np.array(I1.shape)
     sQ2 = np.array(Q2.shape)
     shape = sI1 + sQ2 - 1
-    HPfilt = (int(sI1/(lags*4)))  # smallest features visible is lamda/4
+    HPfilt = (int(sI1/(lags*4)))  # largest features visible is lamda*4
     fshape = [_next_regular(int(d)) for d in shape]  # padding to optimal size for FFTPACK
     fslice = tuple([slice(0, int(sz)) for sz in shape])
     # Do FFTs and get Cov Matrix
@@ -98,16 +100,17 @@ def getCovMatrix(I1, Q1, I2, Q2, lags=20):
     rfftQ1 = rfftn(Q1[::-1], fshape)
     rfftI2 = rfftn(I2[::-1], fshape)
     rfftQ2 = rfftn(Q2[::-1], fshape)
-    # filter frequencies outside the lags range
-    fftI1 = np.concatenate((np.zeros(HPfilt), fftI1[HPfilt:]))
-    fftQ1 = np.concatenate((np.zeros(HPfilt), fftQ1[HPfilt:]))
-    fftI2 = np.concatenate((np.zeros(HPfilt), fftI2[HPfilt:]))
-    fftQ2 = np.concatenate((np.zeros(HPfilt), fftQ2[HPfilt:]))
-    # filter frequencies outside the lags range
-    rfftI1 = np.concatenate((np.zeros(HPfilt), rfftI1[HPfilt:]))
-    rfftQ1 = np.concatenate((np.zeros(HPfilt), rfftQ1[HPfilt:]))
-    rfftI2 = np.concatenate((np.zeros(HPfilt), rfftI2[HPfilt:]))
-    rfftQ2 = np.concatenate((np.zeros(HPfilt), rfftQ2[HPfilt:]))
+    if hp:
+        # filter frequencies outside the lags range
+        fftI1 = np.concatenate((np.zeros(HPfilt), fftI1[HPfilt:]))
+        fftQ1 = np.concatenate((np.zeros(HPfilt), fftQ1[HPfilt:]))
+        fftI2 = np.concatenate((np.zeros(HPfilt), fftI2[HPfilt:]))
+        fftQ2 = np.concatenate((np.zeros(HPfilt), fftQ2[HPfilt:]))
+        # filter frequencies outside the lags range
+        rfftI1 = np.concatenate((np.zeros(HPfilt), rfftI1[HPfilt:]))
+        rfftQ1 = np.concatenate((np.zeros(HPfilt), rfftQ1[HPfilt:]))
+        rfftI2 = np.concatenate((np.zeros(HPfilt), rfftI2[HPfilt:]))
+        rfftQ2 = np.concatenate((np.zeros(HPfilt), rfftQ2[HPfilt:]))
     CovMat[0, :] = (irfftn((fftI1*rfftI2))[fslice].copy()[start:stop] / len(fftI1))  # 0: <I1I2>
     CovMat[1, :] = (irfftn((fftQ1*rfftQ2))[fslice].copy()[start:stop] / len(fftI1))  # 1: <Q1Q2>
     CovMat[2, :] = (irfftn((fftI1*rfftQ2))[fslice].copy()[start:stop] / len(fftI1))  # 2: <I1Q2>
@@ -132,12 +135,31 @@ def f1pN(tArray, lags0, d=1):
 def correctPhase(dispData, dicData):
     on, off, Fac1, Fac2 = prep_data(dispData, dicData)
     lags = dispData['lags']
-    CovMat = getCovMatrix(on.I1, on.Q1, on.I2, on.Q2)
-    offset = CovMat[5][lags]  # want this phase angle to be zero
-    phase = np.angle(1j*on.Q1 + on.I1)  # phase rotation
-    new = np.abs(1j*on.Q1 + on.I1)*np.exp(1j*(phase - offset))
-    on.I1 = np.real(new)
-    on.Q1 = np.imag(new)
+    hp = dispData['FFT-Filter']
+
+    if dispData['Trigger correction']:
+        CovMat = getCovMatrix(on.I1, on.Q1, on.I2, on.Q2, lags=lags, hp=hp)
+        dMag = f1pN(CovMat[4], lags, d=1)
+        print dMag
+        on.I1 = np.roll(on.I1, dMag)  # Correct 1pt trigger jitter
+        on.Q1 = np.roll(on.Q1, dMag)
+
+    if dispData['Phase correction']:
+        CovMat = getCovMatrix(on.I1, on.Q1, on.I2, on.Q2, lags=lags, hp=hp)
+        phase_index = np.argmax(CovMat[4])
+        phase_offset = CovMat[5][phase_index]
+        phase = np.angle(1j*on.Q1 + on.I1)  # phase rotation
+        new = np.abs(1j*on.Q1 + on.I1)*np.exp(1j*(phase - phase_offset))
+        on.I1 = np.real(new)
+        on.Q1 = np.imag(new)
+
+    CovMat = getCovMatrix(on.I1, on.Q1, on.I2, on.Q2, lags=lags, hp=hp)
+    on.PSI_mag = CovMat[4]  # record the PSI magnitude value
+    on.PSI_phs = CovMat[5]
+    on.cII = CovMat[0]
+    on.cQQ = CovMat[1]
+    on.cIQ = CovMat[2]
+    on.cQI = CovMat[3]
 
 
 def process(dispData, dicData):
@@ -180,4 +202,3 @@ def process(dispData, dicData):
 # # savemtx(fnum+'IQ2m.mtx', IQ2m, on.headerIQ2)
 # on.close()
 # off.close()
-#
