@@ -128,7 +128,12 @@
         </row>
         <row>
          <property name="text">
-          <string>FFT-Filter</string>
+          <string>Filter IQ data</string>
+         </property>
+        </row>
+        <row>
+         <property name="text">
+          <string>Section data</string>
          </property>
         </row>
         <column>
@@ -226,6 +231,14 @@
          </layout>
         </widget>
         <widget class="QWidget" name="page_3">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>0</y>
+           <width>608</width>
+           <height>426</height>
+          </rect>
+         </property>
          <attribute name="label">
           <string>Two Mode Squeezing</string>
          </attribute>

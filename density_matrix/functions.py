@@ -11,7 +11,6 @@ def load_dataset(dispData, dicData, ext='hdf5_on'):
     dicData[ext] = storehdf5(str(dispData[ext]))
     dicData[ext].open_f(mode='r')
 
-
 def prep_data(dispData, dicData):
     on = dicData['hdf5_on']
     off = dicData['hdf5_off']
@@ -75,13 +74,13 @@ def makeheader(dispData, dicData):
                    ',I2,' + str(on.yQI[0]) + ',' + str(on.yQI[-2]) + ',DPow,2.03,0.03')
 
 
-def getCovMatrix(I1, Q1, I2, Q2, lags=20, hp=True):
+def getCovMatrix(I1i, Q1i, I2i, Q2i, lags=20, hp=True):
     # calc <I1I2>, <I1Q2>, Q1I2, Q1Q2
     lags = int(lags)
-    I1 = np.asarray(I1)
-    Q1 = np.asarray(Q1)
-    I2 = np.asarray(I2)
-    Q2 = np.asarray(Q2)
+    I1 = np.asarray(I1i)
+    Q1 = np.asarray(Q1i)
+    I2 = np.asarray(I2i)
+    Q2 = np.asarray(Q2i)
     CovMat = np.zeros([6, lags*2+1])
     start = len(I1*2-1)-lags-1
     stop = len(I1*2-1)+lags
@@ -111,13 +110,46 @@ def getCovMatrix(I1, Q1, I2, Q2, lags=20, hp=True):
         rfftQ1 = np.concatenate((np.zeros(HPfilt), rfftQ1[HPfilt:]))
         rfftI2 = np.concatenate((np.zeros(HPfilt), rfftI2[HPfilt:]))
         rfftQ2 = np.concatenate((np.zeros(HPfilt), rfftQ2[HPfilt:]))
-    CovMat[0, :] = (irfftn((fftI1*rfftI2))[fslice].copy()[start:stop] / len(fftI1))  # 0: <I1I2>
-    CovMat[1, :] = (irfftn((fftQ1*rfftQ2))[fslice].copy()[start:stop] / len(fftI1))  # 1: <Q1Q2>
-    CovMat[2, :] = (irfftn((fftI1*rfftQ2))[fslice].copy()[start:stop] / len(fftI1))  # 2: <I1Q2>
-    CovMat[3, :] = (irfftn((fftQ1*rfftI2))[fslice].copy()[start:stop] / len(fftI1))  # 3: <Q1I2>
-    CovMat[4, :] = (abs(1j*(CovMat[2, :]+CovMat[3, :]) + (CovMat[0, :] - CovMat[1, :])))  # 4: <Squeezing> Magnitude
-    CovMat[5, :] = np.angle(1j*(CovMat[2, :]+CovMat[3, :]) + (CovMat[0, :] - CovMat[1, :]))  # 5: <Squeezing> Angle
+
+    # 0: <I1I2>
+    # 1: <Q1Q2>
+    # 2: <I1Q2>
+    # 3: <Q1I2>
+    # 4: <Squeezing> Magnitude
+    # 5: <Squeezing> Angle
+    CovMat[0, :] = (irfftn((fftI1*rfftI2))[fslice].copy()[start:stop] / len(fftI1))
+    CovMat[1, :] = (irfftn((fftQ1*rfftQ2))[fslice].copy()[start:stop] / len(fftI1))
+    CovMat[2, :] = (irfftn((fftI1*rfftQ2))[fslice].copy()[start:stop] / len(fftI1))
+    CovMat[3, :] = (irfftn((fftQ1*rfftI2))[fslice].copy()[start:stop] / len(fftI1))
+    CovMat[4, :] = (abs(1j*(CovMat[2, :]+CovMat[3, :]) + (CovMat[0, :] - CovMat[1, :])))
+    CovMat[5, :] = np.angle(1j*(CovMat[2, :]+CovMat[3, :]) + (CovMat[0, :] - CovMat[1, :]))
     return CovMat
+
+
+def getCovMat_wrap(dispData, on):
+    sectioning = dispData['Section Data']
+    lags = dispData['lags']
+    hp = dispData['FFT-Filter']
+    I1 = on.I1
+    Q1 = on.Q1
+    I2 = on.I2
+    Q2 = on.Q2
+
+
+    if sectioning:
+        num = len(I1)/lags
+        modulo = len(I1)%lags  # 4/3 = 1 + residual -> would give an error
+        if modulo:
+            I1 = I1[:-modulo]  # remove residual data points
+            Q1 = Q1[:-modulo]
+            I2 = I2[:-modulo]
+            Q2 = Q2[:-modulo]
+        I1 = np.reshape(I1, [num, lags])
+        Q1 = np.reshape(Q1, [num, lags])
+        I2 = np.reshape(I2, [num, lags])
+        Q2 = np.reshape(Q2, [num, lags])
+
+    getCovMatrix(I1, Q1, I2, Q2, lags=lags, hp=True)
 
 
 def f1pN2(tArray, d=1):
@@ -134,8 +166,7 @@ def f1pN(tArray, lags0, d=1):
 
 def correctPhase(dispData, dicData):
     on, off, Fac1, Fac2 = prep_data(dispData, dicData)
-    lags = dispData['lags']
-    hp = dispData['FFT-Filter']
+    # section = dispData['Section Data']
 
     if dispData['Trigger correction']:
         CovMat = getCovMatrix(on.I1, on.Q1, on.I2, on.Q2, lags=lags, hp=hp)

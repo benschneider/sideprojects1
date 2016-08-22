@@ -51,6 +51,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.dispData['Phase correction'] = False
         self.dispData['Trigger correction'] = False
         self.dispData['FFT-Filter'] = False
+        self.dispData['Section Data'] = True
         self.dispData['Settings file'] = 'density_matrix.set'
 
     def init_UI(self):
@@ -139,6 +140,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.dispData['Phase correction'] = bool(eval(str(table.item(9, 0).text())))
         self.dispData['Trigger correction'] = bool(eval(str(table.item(10, 0).text())))
         self.dispData['FFT-Filter'] = bool(eval(str(table.item(11, 0).text())))
+        self.dispData['Section Data'] = bool(eval(str(table.item(12, 0).text())))
         self.update_data_disp()
 
     def update_table(self):
@@ -157,13 +159,14 @@ class dApp(QMainWindow, Ui_MainWindow):
         table.setItem(9, 0, QTableWidgetItem(str(d['Phase correction'])))
         table.setItem(10, 0, QTableWidgetItem(str(d['Trigger correction'])))
         table.setItem(11, 0, QTableWidgetItem(str(d['FFT-Filter'])))
+        table.setItem(12, 0, QTableWidgetItem(str(d['Section Data'])))
         table.resizeColumnsToContents()
         table.resizeRowsToContents()
         table.show()
 
     def update_data_disp(self):
-        xr = (np.array([-self.dispData['lags'], self.dispData['lags']]) / self.dispData['B'] * 1e6)
-        self.dispData['minmax lags (us)'] = xr
+        xr = (np.array([-self.dispData['lags'], self.dispData['lags']]) / self.dispData['B'])
+        self.dispData['minmax lags (s)'] = xr
         self.dicData['xaxis'] = np.linspace(xr[0], xr[1], self.dispData['lags'] * 2 + 1)
         self.selectDat.clear()
         for key in self.dispData:
