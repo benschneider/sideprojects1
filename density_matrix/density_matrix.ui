@@ -128,12 +128,22 @@
         </row>
         <row>
          <property name="text">
-          <string>Filter IQ data</string>
+          <string>HP IQ data (FFT cut)</string>
          </property>
         </row>
         <row>
          <property name="text">
-          <string>Section data</string>
+          <string>Segment size</string>
+         </property>
+        </row>
+        <row>
+         <property name="text">
+          <string>LP IQ data (Gaus)</string>
+         </property>
+        </row>
+        <row>
+         <property name="text">
+          <string>Averages</string>
          </property>
         </row>
         <column>
@@ -183,7 +193,7 @@
          <enum>QFrame::NoFrame</enum>
         </property>
         <property name="currentIndex">
-         <number>3</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="page_1">
          <property name="geometry">

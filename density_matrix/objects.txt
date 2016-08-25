@@ -1,0 +1,25 @@
+# Overview file to keep track of complex structures
+# (functions.py) assigned to dicData['hdf5_on'] 
+
+on = dicData['hdf5_on']
+on.I1 = d1.D12raw[select][0]/Fac1
+on.Q1 = d1.D12raw[select][1]/Fac1
+on.I2 = d1.D12raw[select][2]/Fac2
+on.Q2 = d1.D12raw[select][3]/Fac2
+
+on.IImap, on.xII, on.yII = np.histogram2d(on.I1, on.I2, [on.xII, on.yII])
+on.QQmap, on.xQQ, on.yQQ = np.histogram2d(on.Q1, on.Q2, [on.xQQ, on.yQQ])
+on.IQmap, on.xIQ, on.yIQ = np.histogram2d(on.I1, on.Q2, [on.xIQ, on.yIQ])
+on.QImap, on.xQI, on.yQI = np.histogram2d(on.Q1, on.I2, [on.xQI, on.yQI])
+
+on.headerII = ('Units,ufo,I1,' + str(on.xII[0]) + ',' + str(on.xII[-2]) + ',I2,' + str(on.yII[0]) + ',' + str(on.yII[-2]) + ',DPow,2.03,0.03')
+on.headerQQ = ('Units,ufo,Q1,' + str(on.xQQ[0]) + ',' + str(on.xQQ[-2]) + ',Q2,' + str(on.yQQ[0]) + ',' + str(on.yQQ[-2]) + ',DPow,2.03,0.03')
+on.headerIQ = ('Units,ufo,I1,' + str(on.xIQ[0]) + ',' + str(on.xIQ[-2]) + ',Q2,' + str(on.yIQ[0]) + ',' + str(on.yIQ[-2]) + ',DPow,2.03,0.03')
+on.headerQI = ('Units,ufo,Q1,' + str(on.xQI[0]) + ',' + str(on.xQI[-2]) + ',I2,' + str(on.yQI[0]) + ',' + str(on.yQI[-2]) + ',DPow,2.03,0.03')
+
+on.PSI_mag = CovMat[4]
+on.PSI_phs = CovMat[5]
+on.cII = CovMat[0]
+on.cQQ = CovMat[1]
+on.cIQ = CovMat[2]
+on.cQI = CovMat[3]

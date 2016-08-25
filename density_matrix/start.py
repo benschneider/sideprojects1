@@ -47,11 +47,13 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.dispData['B'] = 5e5
         self.dispData['select'] = 1
         self.dispData['mapdim'] = [20, 20]
-        self.dispData['lags'] = 20
+        self.dispData['lags'] = 1000
         self.dispData['Phase correction'] = False
         self.dispData['Trigger correction'] = False
         self.dispData['FFT-Filter'] = False
-        self.dispData['Section Data'] = True
+        self.dispData['Segment Size'] = 0
+        self.dispData['Averages'] = 0
+        self.dispData['Low Pass'] = 0
         self.dispData['Settings file'] = 'density_matrix.set'
 
     def init_UI(self):
@@ -67,7 +69,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.actionMtx_files.triggered.connect(self.open_mtx_spyview)
 
     def save_settings(self):
-        with open(self.dispData['Settings file'], "wb") as myFile:
+        with open(self.dispData['Settings file'], "wb+") as myFile:
             cPickle.dump(self.dispData, myFile)
         logging.debug('settings and files saved')
 
@@ -127,7 +129,7 @@ class dApp(QMainWindow, Ui_MainWindow):
 
     def read_table(self):
         table = self.tableWidget
-        logging.debug('Read Table Widget')
+        # logging.debug('Read Table Widget')
         self.dispData['f1'] = np.float(table.item(0, 0).text())
         self.dispData['f2'] = np.float(table.item(1, 0).text())
         self.dispData['g1'] = np.float(table.item(2, 0).text())
@@ -140,7 +142,9 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.dispData['Phase correction'] = bool(eval(str(table.item(9, 0).text())))
         self.dispData['Trigger correction'] = bool(eval(str(table.item(10, 0).text())))
         self.dispData['FFT-Filter'] = bool(eval(str(table.item(11, 0).text())))
-        self.dispData['Section Data'] = bool(eval(str(table.item(12, 0).text())))
+        self.dispData['Segment Size'] = int(eval(str(table.item(12, 0).text())))
+        self.dispData['Low Pass'] = np.float(table.item(13, 0).text())
+        self.dispData['Averages'] = np.int(table.item(14, 0).text())
         self.update_data_disp()
 
     def update_table(self):
@@ -159,7 +163,9 @@ class dApp(QMainWindow, Ui_MainWindow):
         table.setItem(9, 0, QTableWidgetItem(str(d['Phase correction'])))
         table.setItem(10, 0, QTableWidgetItem(str(d['Trigger correction'])))
         table.setItem(11, 0, QTableWidgetItem(str(d['FFT-Filter'])))
-        table.setItem(12, 0, QTableWidgetItem(str(d['Section Data'])))
+        table.setItem(12, 0, QTableWidgetItem(str(d['Segment Size'])))
+        table.setItem(13, 0, QTableWidgetItem(str(d['Low Pass'])))
+        table.setItem(14, 0, QTableWidgetItem(str(d['Averages'])))
         table.resizeColumnsToContents()
         table.resizeRowsToContents()
         table.show()
@@ -191,14 +197,6 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.toolbar_1 = NavigationToolbar(self.canvas_1, self.page_1, coordinates=True)
         self.HistLayout.addWidget(self.toolbar_1)
 
-    def clear_page_1(self):
-        if self.canvas_1:
-            logging.debug('Clear Histogram Figures')
-            self.HistLayout.removeWidget(self.canvas_1)
-            self.canvas_1.close()
-            self.HistLayout.removeWidget(self.toolbar_1)
-            self.toolbar_1.close()
-
     def update_page_2(self, fig):
         self.clear_page_2()
         logging.debug('Update Correlation Figures')
@@ -208,14 +206,6 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.toolbar_2 = NavigationToolbar(self.canvas_2, self.page_2, coordinates=True)
         self.CorrLayout.addWidget(self.toolbar_2)
 
-    def clear_page_2(self):
-        if self.canvas_2:
-            logging.debug('Clear Correlation Figures')
-            self.CorrLayout.removeWidget(self.canvas_2)
-            self.canvas_2.close()
-            self.CorrLayout.removeWidget(self.toolbar_2)
-            self.toolbar_2.close()
-
     def update_page_3(self, fig):
         self.clear_page_3()
         logging.debug('Update TMS Figures')
@@ -224,6 +214,22 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.canvas_3.draw()
         self.toolbar_3 = NavigationToolbar(self.canvas_3, self.page_3, coordinates=True)
         self.TMSLayout.addWidget(self.toolbar_3)
+
+    def clear_page_1(self):
+        if self.canvas_1:
+            logging.debug('Clear Histogram Figures')
+            self.HistLayout.removeWidget(self.canvas_1)
+            self.canvas_1.close()
+            self.HistLayout.removeWidget(self.toolbar_1)
+            self.toolbar_1.close()
+
+    def clear_page_2(self):
+        if self.canvas_2:
+            logging.debug('Clear Correlation Figures')
+            self.CorrLayout.removeWidget(self.canvas_2)
+            self.canvas_2.close()
+            self.CorrLayout.removeWidget(self.toolbar_2)
+            self.toolbar_2.close()
 
     def clear_page_3(self):
         if self.canvas_3:
@@ -240,9 +246,9 @@ class dApp(QMainWindow, Ui_MainWindow):
         on = self.dicData['hdf5_on']  # this one contains all the histogram data
         fig1 = Figure(facecolor='white', edgecolor='white')
         ax1 = fig1.add_subplot(2, 2, 1)
-        ax2 = fig1.add_subplot(2, 2, 2)  # , sharex=ax1, sharey=ax1)
-        ax3 = fig1.add_subplot(2, 2, 3)  # , sharex=ax1, sharey=ax1)
-        ax4 = fig1.add_subplot(2, 2, 4)  # , sharex=ax1, sharey=ax1)
+        ax2 = fig1.add_subplot(2, 2, 2)
+        ax3 = fig1.add_subplot(2, 2, 3)
+        ax4 = fig1.add_subplot(2, 2, 4)
         ax1.imshow(on.IIdmap, interpolation='nearest', origin='low',
                    extent=[on.xII[0], on.xII[-1], on.yII[0], on.yII[-1]], aspect='auto')
         ax2.imshow(on.QQdmap, interpolation='nearest', origin='low',
@@ -252,9 +258,6 @@ class dApp(QMainWindow, Ui_MainWindow):
         ax4.imshow(on.QIdmap, interpolation='nearest', origin='low',
                    extent=[on.xQI[0], on.xQI[-1], on.yQI[0], on.yQI[-1]], aspect='auto')
         fig1.tight_layout()
-        # ax1.tick_params(labelbottom='off')
-        # ax2.tick_params(labelbottom='off', labelleft='off')
-        # ax4.tick_params(labelleft='off')
         ax1.set_title('IIc')
         ax2.set_title('QQc')
         ax3.set_title('IQc')
@@ -283,7 +286,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         fig3 = Figure(facecolor='white', edgecolor='black')
         xTMS1 = fig3.add_subplot(1, 2, 1)
         xTMS2 = fig3.add_subplot(1, 2, 2)
-        xTMS1.set_title('Magnitue')
+        xTMS1.set_title('Magnitude')
         xTMS2.set_title('Phase')
         xTMS1.plot(self.dicData['xaxis'], self.dicData['hdf5_on'].PSI_mag)
         xTMS2.plot(self.dicData['xaxis'], self.dicData['hdf5_on'].PSI_phs)
@@ -308,5 +311,4 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     form = dApp()
     form.show()
-    # app.exec_()
     sys.exit(app.exec_())  # it there actually a difference?
