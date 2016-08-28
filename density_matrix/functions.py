@@ -6,6 +6,7 @@ from scipy.signal.signaltools import _next_regular
 from scipy.ndimage.filters import gaussian_filter1d, gaussian_filter
 from numpy.fft import rfftn, irfftn
 import logging
+import PyGnuplot as gp
 
 
 def load_dataset(dispData, dicData, ext='hdf5_on'):
@@ -54,6 +55,7 @@ def lowPass(data, LP=0):
 
 def makehist2d(dispData, dicData):
     on, off, Fac1, Fac2 = prep_data(dispData, dicData)
+    res = dicData['res']
     on.IImap, on.xII, on.yII = np.histogram2d(on.I1, on.I2, [on.xII, on.yII])
     on.QQmap, on.xQQ, on.yQQ = np.histogram2d(on.Q1, on.Q2, [on.xQQ, on.yQQ])
     on.IQmap, on.xIQ, on.yIQ = np.histogram2d(on.I1, on.Q2, [on.xIQ, on.yIQ])
@@ -62,19 +64,21 @@ def makehist2d(dispData, dicData):
     off.QQmap, off.xQQ, off.yQQ = np.histogram2d(off.Q1, off.Q2, [on.xQQ, on.yQQ])
     off.IQmap, off.xIQ, off.yIQ = np.histogram2d(off.I1, off.Q2, [on.xIQ, on.yIQ])
     off.QImap, off.xQI, off.yQI = np.histogram2d(off.Q1, off.I2, [on.xQI, on.yQI])
-    on.IIdmap = on.IImap - off.IImap
-    on.QQdmap = on.QQmap - off.QQmap
-    on.IQdmap = on.IQmap - off.IQmap
-    on.QIdmap = on.QImap - off.QImap
+    res.IQmapM[0] = on.IImap - off.IImap
+    res.IQmapM[1] = on.QQmap - off.QQmap
+    res.IQmapM[2] = on.IQmap - off.IQmap
+    res.IQmapM[3] = on.QImap - off.QImap
 
 
 def makeheader(dispData, dicData):
     on, off, Fac1, Fac2 = prep_data(dispData, dicData)
+    res = dicData['res']
     mapdim = dispData['mapdim']
-    on.IImap, on.xII, on.yII = np.histogram2d(on.I1, on.I2, mapdim)
-    on.QQmap, on.xQQ, on.yQQ = np.histogram2d(on.Q1, on.Q2, mapdim)
-    on.IQmap, on.xIQ, on.yIQ = np.histogram2d(on.I1, on.Q2, mapdim)
-    on.QImap, on.xQI, on.yQI = np.histogram2d(on.Q1, on.I2, mapdim)
+    res.IQmapM = np.zeros([4, mapdim[0], mapdim[1]])
+    res.IQmapM[0], on.xII, on.yII = np.histogram2d(on.I1, on.I2, mapdim)
+    res.IQmapM[1], on.xQQ, on.yQQ = np.histogram2d(on.Q1, on.Q2, mapdim)
+    res.IQmapM[2], on.xIQ, on.yIQ = np.histogram2d(on.I1, on.Q2, mapdim)
+    res.IQmapM[3], on.xQI, on.yQI = np.histogram2d(on.Q1, on.I2, mapdim)
     on.headerII = ('Units,ufo,I1,' + str(on.xII[0]) + ',' + str(on.xII[-2]) +
                    ',I2,' + str(on.yII[0]) + ',' + str(on.yII[-2]) + ',DPow,2.03,0.03')
     on.headerQQ = ('Units,ufo,Q1,' + str(on.xQQ[0]) + ',' + str(on.xQQ[-2]) +
@@ -85,15 +89,19 @@ def makeheader(dispData, dicData):
                    ',I2,' + str(on.yQI[0]) + ',' + str(on.yQI[-2]) + ',DPow,2.03,0.03')
 
 
-# def getCovMatrix(I1i, Q1i, I2i, Q2i, lags=20, hp=True):
 def getCovMatrix(IQdata, lags=100, hp=True):
-    # calc <I1I2>, <I1Q2>, Q1I2, Q1Q2
+    # 0: <I1I2>
+    # 1: <Q1Q2>
+    # 2: <I1Q2>
+    # 3: <Q1I2>
+    # 4: <Squeezing> Magnitude
+    # 5: <Squeezing> Phase
     lags = int(lags)
     I1 = np.asarray(IQdata[0])
     Q1 = np.asarray(IQdata[1])
     I2 = np.asarray(IQdata[2])
     Q2 = np.asarray(IQdata[3])
-    CovMat = np.zeros([10, lags*2+1])
+    CovMat = np.zeros([6, lags*2+1])
     start = len(I1*2-1)-lags-1
     stop = len(I1*2-1)+lags
     sI1 = np.array(I1.shape)
@@ -105,39 +113,20 @@ def getCovMatrix(IQdata, lags=100, hp=True):
     # Do FFTs and get Cov Matrix
     fftI1 = rfftn(I1, fshape)
     fftQ1 = rfftn(Q1, fshape)
-    fftI2 = rfftn(I2, fshape)
-    fftQ2 = rfftn(Q2, fshape)
-    rfftI1 = rfftn(I1[::-1], fshape)
-    rfftQ1 = rfftn(Q1[::-1], fshape)
     rfftI2 = rfftn(I2[::-1], fshape)
     rfftQ2 = rfftn(Q2[::-1], fshape)
     if hp:
         # filter frequencies outside the lags range
         fftI1 = np.concatenate((np.zeros(HPfilt), fftI1[HPfilt:]))
         fftQ1 = np.concatenate((np.zeros(HPfilt), fftQ1[HPfilt:]))
-        fftI2 = np.concatenate((np.zeros(HPfilt), fftI2[HPfilt:]))
-        fftQ2 = np.concatenate((np.zeros(HPfilt), fftQ2[HPfilt:]))
-        # filter frequencies outside the lags range
-        rfftI1 = np.concatenate((np.zeros(HPfilt), rfftI1[HPfilt:]))
-        rfftQ1 = np.concatenate((np.zeros(HPfilt), rfftQ1[HPfilt:]))
         rfftI2 = np.concatenate((np.zeros(HPfilt), rfftI2[HPfilt:]))
         rfftQ2 = np.concatenate((np.zeros(HPfilt), rfftQ2[HPfilt:]))
-    # 0: <I1I2>
-    # 1: <Q1Q2>
-    # 2: <I1Q2>
-    # 3: <Q1I2>
-    # 4: <Squeezing> Magnitude
-    # 5: <Squeezing> Angle
     CovMat[0, :] = (irfftn((fftI1*rfftI2))[fslice].copy()[start:stop] / len(fftI1))
     CovMat[1, :] = (irfftn((fftQ1*rfftQ2))[fslice].copy()[start:stop] / len(fftI1))
     CovMat[2, :] = (irfftn((fftI1*rfftQ2))[fslice].copy()[start:stop] / len(fftI1))
     CovMat[3, :] = (irfftn((fftQ1*rfftI2))[fslice].copy()[start:stop] / len(fftI1))
     CovMat[4, :] = abs(1j*(CovMat[2, :]+CovMat[3, :]) + (CovMat[0, :] - CovMat[1, :]))
     CovMat[5, :] = np.angle(1j*(CovMat[2, :]+CovMat[3, :]) + (CovMat[0, :] - CovMat[1, :]))
-    CovMat[6, :] = (irfftn((fftI1*rfftI1))[fslice].copy()[start:stop] / len(fftI1))
-    CovMat[7, :] = (irfftn((fftQ1*rfftQ1))[fslice].copy()[start:stop] / len(fftI1))
-    CovMat[8, :] = (irfftn((fftI2*rfftI2))[fslice].copy()[start:stop] / len(fftI1))
-    CovMat[9, :] = (irfftn((fftQ2*rfftQ2))[fslice].copy()[start:stop] / len(fftI1))
     return CovMat
 
 
@@ -181,6 +170,7 @@ def f1pN(tArray, lags0, d=1):
 
 def correctPhase(dispData, dicData):
     on, off, Fac1, Fac2 = prep_data(dispData, dicData)
+    res = dicData['res']
     if dispData['Trigger correction']:
         CovMat = getCovMat_wrap(dispData, on)
         dMag = f1pN2(CovMat[4], dispData['lags'], d=1)
@@ -195,15 +185,7 @@ def correctPhase(dispData, dicData):
         new = np.abs(1j*on.Q1 + on.I1)*np.exp(1j*(phase - phase_offset))
         on.I1 = np.real(new)
         on.Q1 = np.imag(new)
-    CovMat = getCovMat_wrap(dispData, on)
-    getCovMat_wrap(dispData, on)
-    on.PSI_mag = CovMat[4]  # record the PSI magnitude value
-    on.PSI_phs = CovMat[5]
-    on.cII = CovMat[0]
-    on.cQQ = CovMat[1]
-    on.cIQ = CovMat[2]
-    on.cQI = CovMat[3]
-    on.CovMat = CovMat
+    res.CovMat = getCovMat_wrap(dispData, on)
 
 
 def process(dispData, dicData):
@@ -214,63 +196,52 @@ def process(dispData, dicData):
 
 def get_data_avg(dispData, dicData):
     on, off, Fac1, Fac2 = prep_data(dispData, dicData)
-    on.map_avg = np.zeros([4, on.IImap.shape[0], on.IImap.shape[1]])
-    on.c_avg = np.zeros([6, dispData['lags']*2+1])
+    res = dicData['res']
+    mapdim = dispData['mapdim']
+    res.phn_avg = np.zeros(2)  # photon number
+    res.IQmapM_avg = np.zeros([4, mapdim[0], mapdim[1]])  # histogram map
+    res.c_avg = np.zeros([6, dispData['lags']*2+1])  # Covariance Map inc PSI
     for i in range(dispData['Averages']):
         assignRaw(dispData, dicData)
         logging.debug('Working on trace number '+str(dispData['Trace i, j, k']))
-        correctPhase(dispData, dicData)
+        logging.debug('dim1 value :' + str(dispData['dim1 lin'][int(dispData['Trace i, j, k'][0])]))
+        correctPhase(dispData, dicData)  # assigned res.CovMat
         makehist2d(dispData, dicData)
-        on.map_avg[0] += on.IImap
-        on.map_avg[1] += on.QQmap
-        on.map_avg[2] += on.IQmap
-        on.map_avg[3] += on.QImap
-        on.c_avg[0] += on.cII
-        on.c_avg[1] += on.cQQ
-        on.c_avg[2] += on.cIQ
-        on.c_avg[3] += on.cQI
+        res.phn_avg[0] += np.mean(on.I1**2 + on.Q1**2) - np.mean(off.I1**2 + off.Q1**2)
+        res.phn_avg[1] += np.mean(on.I2**2 + on.Q2**2) - np.mean(off.I2**2 + off.Q2**2)
+        res.IQmapM_avg += res.IQmapM
+        res.c_avg += res.CovMat
         dispData['select'] = dispData['select'] + 201  # for now a hard coded number!
-    on.c_avg = on.c_avg/dispData['Averages']
-    on.c_avg[4, :] = abs(1j*(on.c_avg[2]+on.c_avg[3]) + (on.c_avg[0] - on.c_avg[1]))
-    on.c_avg[5, :] = np.angle(1j*(on.c_avg[2]+on.c_avg[3]) + (on.c_avg[0] - on.c_avg[1]))
-    copy_avg_data(on)
 
+    # res.IQmapM_avg = res.IQmapM_avg/dispData['Averages']
+    res.phn_avg = res.phn_avg/dispData['Averages']
+    res.c_avg = res.c_avg/dispData['Averages']
+    res.c_avg[4, :] = abs(1j*(res.c_avg[2]+res.c_avg[3]) + (res.c_avg[0] - res.c_avg[1]))
+    res.c_avg[5, :] = np.angle(1j*(res.c_avg[2]+res.c_avg[3]) + (res.c_avg[0] - res.c_avg[1]))
+    res.c_avg[4, :] = 2.0*res.c_avg[4, :]/(res.phn_avg[0]+res.phn_avg[1]+1.0)
 
-def copy_avg_data(on):
-    on.IImap = on.map_avg[0]
-    on.QQmap = on.map_avg[1]
-    on.IQmap = on.map_avg[2]
-    on.QImap = on.map_avg[3]
-    on.cII = on.c_avg[0]
-    on.cQQ = on.c_avg[1]
-    on.cIQ = on.c_avg[2]
-    on.cQI = on.c_avg[3]
-    on.PSI_mag = on.c_avg[4]
-    on.PSI_phs = on.c_avg[5]
-
-
-def process_all_powers(dispData, dicData):
+def process_all_points(dispData, dicData):
     assignRaw(dispData, dicData)
     makeheader(dispData, dicData)
+    mapdim = dispData['mapdim']
     on, off, Fac1, Fac2 = prep_data(dispData, dicData)
     start_select = dispData['select']
+    pt = (dispData['dim1 pt'])
     res = dicData['res']
-    powers = (dispData['Power values'])
-    res.IQmaps = np.zeros([4, powers, on.IImap.shape[0], on.IImap.shape[1]])
-    res.IQcs = np.zeros([4, powers, on.cII.shape[0]])
-    res.PSI = np.zeros([2, powers, on.PSI_map.shape[0]])
-    res.n = np.zeros([2, powers])
-    for p in range(powers):
+    res.IQmapMs_avg = np.zeros([pt, 4, mapdim[0], mapdim[1]])
+    res.cs_avg = np.zeros([pt, 6, dispData['lags']*2+1])
+    res.phns_avg = np.zeros([pt, 2])
+    res.ineq_req = np.zeros(pt)
+    f1 = np.float(dispData['f1'])
+    f2 = np.float(dispData['f2'])
+
+    for n in range(pt):
         get_data_avg(dispData, dicData)
-        res.IQmaps[0, p] = on.IImap
-        res.IQmaps[1, p] = on.QQmap
-        res.IQmaps[2, p] = on.IQmap
-        res.IQmaps[3, p] = on.QImap
-        res.IQcs[0, p] = on.cII
-        res.IQcs[1, p] = on.cQQ
-        res.IQcs[2, p] = on.cIQ
-        res.IQcs[3, p] = on.cQI
-        res.PSI[0, p] = on.PSI_mag
-        res.PSI[1, p] = on.PSI_phs
-        dispData['select'] = p + start_select
-        # store all results in big 3d maps
+        res.IQmapMs_avg[n] = res.IQmapM_avg
+        res.cs_avg[n] = res.c_avg
+        res.phns_avg[n] = res.phn_avg
+        n1 = np.float(res.phn_avg[0])
+        n2 = np.float(res.phn_avg[1])
+        res.ineq_req[n] = (2.0*np.sqrt(f1*f2)*(n1+n2))/(f1*(2.0*n1+1.0)+f2*(2.0*n2+1.0))
+        print res.ineq_req[n]
+        dispData['select'] = start_select + 1 + n

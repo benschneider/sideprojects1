@@ -37,26 +37,33 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.canvas_1 = False
         self.canvas_2 = False
         self.canvas_3 = False
+        self.canvas_4 = False
+        self.canvas_5 = False
+        self.canvas_6 = False
         self.dic_canvas = {}
         self.dispData = {}
         self.dicData = {}
         self.dicData['res'] = empty_class()  # class to store results
-        self.dispData['f1'] = 4.8e9
-        self.dispData['f2'] = 4.1e9
-        self.dispData['g1'] = 602.0e7
-        self.dispData['g2'] = 685.35e7
-        self.dispData['B'] = 5e5
-        self.dispData['select'] = 1
-        self.dispData['mapdim'] = [20, 20]
-        self.dispData['lags'] = 1000
-        self.dispData['Phase correction'] = False
-        self.dispData['Trigger correction'] = False
-        self.dispData['FFT-Filter'] = False
-        self.dispData['Segment Size'] = 0
-        self.dispData['Averages'] = 1
-        self.dispData['Low Pass'] = 0
-        self.dispData['Power values'] = 201
-        self.dispData['Settings file'] = 'density_matrix.set'
+        dD = self.dispData
+        dD['f1'] = 4.8e9
+        dD['f2'] = 4.1e9
+        dD['g1'] = 602.0e7
+        dD['g2'] = 685.35e7
+        dD['B'] = 5e5
+        dD['select'] = 1
+        dD['mapdim'] = [20, 20]
+        dD['lags'] = 1000
+        dD['Phase correction'] = True
+        dD['Trigger correction'] = True
+        dD['FFT-Filter'] = False
+        dD['Segment Size'] = 0
+        dD['Averages'] = 1
+        dD['Low Pass'] = 0
+        dD['dim1 pt'] = 201
+        dD['dim1 start'] = 2.03
+        dD['dim1 stop'] = 0.03
+        dD['dim1 lin'] = np.linspace(dD['dim1 start'], dD['dim1 stop'], dD['dim1 pt'])
+        dD['Settings file'] = 'density_matrix.set'
 
     def init_UI(self):
         ''' connect buttons to programs '''
@@ -134,22 +141,26 @@ class dApp(QMainWindow, Ui_MainWindow):
     def read_table(self):
         table = self.tableWidget
         # logging.debug('Read Table Widget')
-        self.dispData['f1'] = np.float(table.item(0, 0).text())
-        self.dispData['f2'] = np.float(table.item(1, 0).text())
-        self.dispData['g1'] = np.float(table.item(2, 0).text())
-        self.dispData['g2'] = np.float(table.item(3, 0).text())
-        self.dispData['B'] = np.float(table.item(4, 0).text())
-        self.dispData['select'] = int(eval(str(table.item(5, 0).text())))
-        self.dispData['lags'] = int(eval(str(table.item(6, 0).text())))
-        self.dispData['mapdim'][0] = int(table.item(7, 0).text())
-        self.dispData['mapdim'][1] = int(table.item(8, 0).text())
-        self.dispData['Phase correction'] = bool(eval(str(table.item(9, 0).text())))
-        self.dispData['Trigger correction'] = bool(eval(str(table.item(10, 0).text())))
-        self.dispData['FFT-Filter'] = bool(eval(str(table.item(11, 0).text())))
-        self.dispData['Segment Size'] = int(eval(str(table.item(12, 0).text())))
-        self.dispData['Low Pass'] = np.float(table.item(13, 0).text())
-        self.dispData['Averages'] = np.int(table.item(14, 0).text())
-        self.dispData['Power values'] = np.int(table.item(15, 0).text())
+        dD = self.dispData
+        dD['f1'] = np.float(table.item(0, 0).text())
+        dD['f2'] = np.float(table.item(1, 0).text())
+        dD['g1'] = np.float(table.item(2, 0).text())
+        dD['g2'] = np.float(table.item(3, 0).text())
+        dD['B'] = np.float(table.item(4, 0).text())
+        dD['select'] = int(eval(str(table.item(5, 0).text())))
+        dD['lags'] = int(eval(str(table.item(6, 0).text())))
+        dD['mapdim'][0] = int(table.item(7, 0).text())
+        dD['mapdim'][1] = int(table.item(8, 0).text())
+        dD['Phase correction'] = bool(eval(str(table.item(9, 0).text())))
+        dD['Trigger correction'] = bool(eval(str(table.item(10, 0).text())))
+        dD['FFT-Filter'] = bool(eval(str(table.item(11, 0).text())))
+        dD['Segment Size'] = int(eval(str(table.item(12, 0).text())))
+        dD['Low Pass'] = np.float(table.item(13, 0).text())
+        dD['Averages'] = np.int(table.item(14, 0).text())
+        dD['dim1 pt'] = np.int(table.item(15, 0).text())
+        dD['dim1 start'] = np.float(table.item(16, 0).text())
+        dD['dim1 stop'] = np.float(table.item(17, 0).text())
+        dD['dim1 lin'] = np.linspace(dD['dim1 start'], dD['dim1 stop'], 201)
         self.update_data_disp()
 
     def update_table(self):
@@ -171,7 +182,9 @@ class dApp(QMainWindow, Ui_MainWindow):
         table.setItem(12, 0, QTableWidgetItem(str(d['Segment Size'])))
         table.setItem(13, 0, QTableWidgetItem(str(d['Low Pass'])))
         table.setItem(14, 0, QTableWidgetItem(str(d['Averages'])))
-        table.setItem(15, 0, QTableWidgetItem(str(d['Power values'])))
+        table.setItem(15, 0, QTableWidgetItem(str(d['dim1 pt'])))
+        table.setItem(16, 0, QTableWidgetItem(str(d['dim1 start'])))
+        table.setItem(17, 0, QTableWidgetItem(str(d['dim1 stop'])))
         table.resizeColumnsToContents()
         table.resizeRowsToContents()
         table.show()
@@ -221,6 +234,24 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.toolbar_3 = NavigationToolbar(self.canvas_3, self.TMS_page, coordinates=True)
         self.TMSLayout.addWidget(self.toolbar_3)
 
+    def update_page_5(self, fig):
+        self.clear_page_5()
+        logging.debug('Update page 5: phn1')
+        self.canvas_5 = FigureCanvas(fig)
+        self.phn1.addWidget(self.canvas_5)
+        self.canvas_5.draw()
+        self.toolbar_5 = NavigationToolbar(self.canvas_5, self.phn1_page, coordinates=True)
+        self.phn1.addWidget(self.toolbar_5)
+
+    def update_page_6(self, fig):
+        self.clear_page_6()
+        logging.debug('Update page 6: phn2')
+        self.canvas_6 = FigureCanvas(fig)
+        self.phn2.addWidget(self.canvas_6)
+        self.canvas_6.draw()
+        self.toolbar_6 = NavigationToolbar(self.canvas_6, self.phn2_page, coordinates=True)
+        self.phn2.addWidget(self.toolbar_6)
+
     def clear_page_1(self):
         if self.canvas_1:
             logging.debug('Clear Histogram Figures')
@@ -245,29 +276,62 @@ class dApp(QMainWindow, Ui_MainWindow):
             self.TMSLayout.removeWidget(self.toolbar_3)
             self.toolbar_3.close()
 
+    def clear_page_5(self):
+        if self.canvas_5:
+            logging.debug('Clear page 5: phn1')
+            self.phn1.removeWidget(self.canvas_5)
+            self.canvas_5.close()
+            self.phn1.removeWidget(self.toolbar_5)
+            self.toolbar_5.close()
+
+    def clear_page_6(self):
+        if self.canvas_6:
+            logging.debug('Clear page 5: phn2')
+            self.phn2.removeWidget(self.canvas_6)
+            self.canvas_6.close()
+            self.phn2.removeWidget(self.toolbar_6)
+            self.toolbar_6.close()
+
     def process_all(self):
         logging.debug('start processing')
-        # functions.process(self.dispData, self.dicData)
-        self.make_Histogram()
-        pass
+        functions.process_all_points(self.dispData, self.dicData)
+        res = self.dicData['res']
+        fig1 = Figure(facecolor='white', edgecolor='white')
+        pl1 = fig1.add_subplot(1, 1, 1)
+        pl1.plot(res.phns_avg[:, 0], label='f1')
+        pl1.plot(res.phns_avg[:, 1], label='f2')
+        pl1.set_title('Photon numbers')
+        fig2 = Figure(facecolor='white', edgecolor='white')
+        pl3 = fig2.add_subplot(2, 1, 1)
+        pl4 = fig2.add_subplot(2, 1, 2)
+        pl3.set_title('Squeezing Mag')
+        lags = self.dispData['lags']
+        pl3.plot(res.cs_avg[:, 4, lags], label='Squeezing')
+        pl3.plot(res.ineq_req, label='Ineq_req')
+        pl3.set_title('Squeezing Phase')
+        pl4.plot(res.cs_avg[:, 5, lags])
+        self.update_page_5(fig1)
+        self.update_page_6(fig2)
+        self.update_table()
 
     def make_Histogram(self):
         functions.process(self.dispData, self.dicData)
         self.make_CorrFigs()
         self.make_TMSFig()
-        on = self.dicData['hdf5_on']  # this one contains all the histogram data
+        on = self.dicData['hdf5_on']  # this one contains all the histogram axis
+        res = self.dicData['res']  # this contains the calculation results
         fig1 = Figure(facecolor='white', edgecolor='white')
         ax1 = fig1.add_subplot(2, 2, 1)
         ax2 = fig1.add_subplot(2, 2, 2)
         ax3 = fig1.add_subplot(2, 2, 3)
         ax4 = fig1.add_subplot(2, 2, 4)
-        ax1.imshow(on.IIdmap, interpolation='nearest', origin='low',
+        ax1.imshow(res.IQmapM_avg[0], interpolation='nearest', origin='low',
                    extent=[on.xII[0], on.xII[-1], on.yII[0], on.yII[-1]], aspect='auto')
-        ax2.imshow(on.QQdmap, interpolation='nearest', origin='low',
+        ax2.imshow(res.IQmapM_avg[1], interpolation='nearest', origin='low',
                    extent=[on.xQQ[0], on.xQQ[-1], on.yQQ[0], on.yQQ[-1]], aspect='auto')
-        ax3.imshow(on.IQdmap, interpolation='nearest', origin='low',
+        ax3.imshow(res.IQmapM_avg[2], interpolation='nearest', origin='low',
                    extent=[on.xIQ[0], on.xIQ[-1], on.yIQ[0], on.yIQ[-1]], aspect='auto')
-        ax4.imshow(on.QIdmap, interpolation='nearest', origin='low',
+        ax4.imshow(res.IQmapM_avg[3], interpolation='nearest', origin='low',
                    extent=[on.xQI[0], on.xQI[-1], on.yQI[0], on.yQI[-1]], aspect='auto')
         fig1.tight_layout()
         ax1.set_title('IIc')
@@ -279,6 +343,7 @@ class dApp(QMainWindow, Ui_MainWindow):
 
     def make_CorrFigs(self):
         fig2 = Figure(facecolor='white', edgecolor='black')
+        res = self.dicData['res']
         xCorr1 = fig2.add_subplot(2, 2, 1)
         xCorr2 = fig2.add_subplot(2, 2, 2)
         xCorr3 = fig2.add_subplot(2, 2, 3)
@@ -287,21 +352,22 @@ class dApp(QMainWindow, Ui_MainWindow):
         xCorr2.set_title('<QQc>')
         xCorr3.set_title('<IQc>')
         xCorr4.set_title('<QIc>')
-        xCorr1.plot(self.dicData['xaxis'], self.dicData['hdf5_on'].cII)
-        xCorr2.plot(self.dicData['xaxis'], self.dicData['hdf5_on'].cQQ)
-        xCorr3.plot(self.dicData['xaxis'], self.dicData['hdf5_on'].cIQ)
-        xCorr4.plot(self.dicData['xaxis'], self.dicData['hdf5_on'].cQI)
+        xCorr1.plot(self.dicData['xaxis'], res.c_avg[0])
+        xCorr2.plot(self.dicData['xaxis'], res.c_avg[1])
+        xCorr3.plot(self.dicData['xaxis'], res.c_avg[2])
+        xCorr4.plot(self.dicData['xaxis'], res.c_avg[3])
         fig2.tight_layout()
         self.update_page_2(fig2)
 
     def make_TMSFig(self):
         fig3 = Figure(facecolor='white', edgecolor='black')
+        res = self.dicData['res']
         xTMS1 = fig3.add_subplot(1, 2, 1)
         xTMS2 = fig3.add_subplot(1, 2, 2)
         xTMS1.set_title('Magnitude')
         xTMS2.set_title('Phase')
-        xTMS1.plot(self.dicData['xaxis'], self.dicData['hdf5_on'].PSI_mag)
-        xTMS2.plot(self.dicData['xaxis'], self.dicData['hdf5_on'].PSI_phs)
+        xTMS1.plot(self.dicData['xaxis'], res.c_avg[4])
+        xTMS2.plot(self.dicData['xaxis'], res.c_avg[5])
         fig3.tight_layout()
         self.update_page_3(fig3)
 

@@ -158,7 +158,17 @@
             </row>
             <row>
              <property name="text">
-              <string>Power levels (to process)</string>
+              <string>dim1 levels (to process)</string>
+             </property>
+            </row>
+            <row>
+             <property name="text">
+              <string>dim1 start</string>
+             </property>
+            </row>
+            <row>
+             <property name="text">
+              <string>dim1 stop</string>
              </property>
             </row>
             <column>
@@ -247,8 +257,8 @@
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>541</width>
-               <height>590</height>
+               <width>98</width>
+               <height>28</height>
               </rect>
              </property>
              <attribute name="label">
@@ -272,9 +282,9 @@
           <item>
            <widget class="QToolBox" name="toolBox_3">
             <property name="currentIndex">
-             <number>0</number>
+             <number>1</number>
             </property>
-            <widget class="QWidget" name="page_5">
+            <widget class="QWidget" name="phn1_page">
              <property name="geometry">
               <rect>
                <x>0</x>
@@ -286,19 +296,29 @@
              <attribute name="label">
               <string>Page 1</string>
              </attribute>
+             <layout class="QVBoxLayout" name="verticalLayout_3">
+              <item>
+               <layout class="QVBoxLayout" name="phn1"/>
+              </item>
+             </layout>
             </widget>
-            <widget class="QWidget" name="page_6">
+            <widget class="QWidget" name="phn2_page">
              <property name="geometry">
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>98</width>
-               <height>28</height>
+               <width>821</width>
+               <height>660</height>
               </rect>
              </property>
              <attribute name="label">
               <string>Page 2</string>
              </attribute>
+             <layout class="QVBoxLayout" name="verticalLayout">
+              <item>
+               <layout class="QVBoxLayout" name="phn2"/>
+              </item>
+             </layout>
             </widget>
            </widget>
           </item>
