@@ -3,7 +3,7 @@ from parsers import storehdf5, loadmtx, savemtx
 from scipy.constants import h  # , e, c , pi
 import scipy.signal as signal
 from scipy.signal.signaltools import _next_regular
-from scipy.ndimage.filters import gaussian_filter1d
+from scipy.ndimage.filters import gaussian_filter1d, gaussian_filter
 from numpy.fft import rfftn, irfftn
 import logging
 
@@ -30,9 +30,10 @@ def prep_data(dispData, dicData):
 def assignRaw(dispData, dicData):
     on, off, Fac1, Fac2 = prep_data(dispData, dicData)
     select = dispData['select']
-    LP = dispData['Low Pass']
     d1 = on.h5.root
+    LP = dispData['Low Pass']
     d2 = off.h5.root
+    on, off, Fac1, Fac2 = prep_data(dispData, dicData)
     on.I1 = lowPass(d1.D12raw[select][0]/Fac1, LP=LP)
     on.Q1 = lowPass(d1.D12raw[select][1]/Fac1, LP=LP)
     on.I2 = lowPass(d1.D12raw[select][2]/Fac2, LP=LP)
@@ -42,7 +43,13 @@ def assignRaw(dispData, dicData):
     off.I2 = lowPass(d2.D12raw[select][2]/Fac2, LP=LP)
     off.Q2 = lowPass(d2.D12raw[select][3]/Fac2, LP=LP)
     dispData['I,Q data length'] = len(on.I1)
-    dispData['Current Section i, j, k'] = d1.ijk[select]
+    dispData['Trace i, j, k'] = d1.ijk[select]
+
+
+def lowPass(data, LP=0):
+    if bool(LP):
+        data = gaussian_filter1d(data, LP)  # Gausfilter
+    return data
 
 
 def makehist2d(dispData, dicData):
@@ -78,14 +85,15 @@ def makeheader(dispData, dicData):
                    ',I2,' + str(on.yQI[0]) + ',' + str(on.yQI[-2]) + ',DPow,2.03,0.03')
 
 
-def getCovMatrix(I1i, Q1i, I2i, Q2i, lags=20, hp=True):
+# def getCovMatrix(I1i, Q1i, I2i, Q2i, lags=20, hp=True):
+def getCovMatrix(IQdata, lags=100, hp=True):
     # calc <I1I2>, <I1Q2>, Q1I2, Q1Q2
     lags = int(lags)
-    I1 = np.asarray(I1i)
-    Q1 = np.asarray(Q1i)
-    I2 = np.asarray(I2i)
-    Q2 = np.asarray(Q2i)
-    CovMat = np.zeros([6, lags*2+1])
+    I1 = np.asarray(IQdata[0])
+    Q1 = np.asarray(IQdata[1])
+    I2 = np.asarray(IQdata[2])
+    Q2 = np.asarray(IQdata[3])
+    CovMat = np.zeros([10, lags*2+1])
     start = len(I1*2-1)-lags-1
     stop = len(I1*2-1)+lags
     sI1 = np.array(I1.shape)
@@ -114,7 +122,6 @@ def getCovMatrix(I1i, Q1i, I2i, Q2i, lags=20, hp=True):
         rfftQ1 = np.concatenate((np.zeros(HPfilt), rfftQ1[HPfilt:]))
         rfftI2 = np.concatenate((np.zeros(HPfilt), rfftI2[HPfilt:]))
         rfftQ2 = np.concatenate((np.zeros(HPfilt), rfftQ2[HPfilt:]))
-
     # 0: <I1I2>
     # 1: <Q1Q2>
     # 2: <I1Q2>
@@ -127,6 +134,10 @@ def getCovMatrix(I1i, Q1i, I2i, Q2i, lags=20, hp=True):
     CovMat[3, :] = (irfftn((fftQ1*rfftI2))[fslice].copy()[start:stop] / len(fftI1))
     CovMat[4, :] = abs(1j*(CovMat[2, :]+CovMat[3, :]) + (CovMat[0, :] - CovMat[1, :]))
     CovMat[5, :] = np.angle(1j*(CovMat[2, :]+CovMat[3, :]) + (CovMat[0, :] - CovMat[1, :]))
+    CovMat[6, :] = (irfftn((fftI1*rfftI1))[fslice].copy()[start:stop] / len(fftI1))
+    CovMat[7, :] = (irfftn((fftQ1*rfftQ1))[fslice].copy()[start:stop] / len(fftI1))
+    CovMat[8, :] = (irfftn((fftI2*rfftI2))[fslice].copy()[start:stop] / len(fftI1))
+    CovMat[9, :] = (irfftn((fftQ2*rfftQ2))[fslice].copy()[start:stop] / len(fftI1))
     return CovMat
 
 
@@ -134,37 +145,24 @@ def getCovMat_wrap(dispData, on):
     segment = dispData['Segment Size']
     lags = dispData['lags']
     hp = dispData['FFT-Filter']
-    I1 = on.I1
-    Q1 = on.Q1
-    I2 = on.I2
-    Q2 = on.Q2
-    num = 0
-
+    IQdata = np.array([on.I1, on.Q1, on.I2, on.Q2])
+    num = 1
     if segment:
-        num = len(I1)/segment
-        modulo = len(I1) % segment  # 4/3 = 1 + residual -> would give an error
+        num = len(IQdata[0])/segment
+        modulo = len(IQdata[0]) % segment  # 4/3 = 1 + residual -> would give an error
         if modulo:
-            I1 = I1[:-modulo]  # remove residual data points
-            Q1 = Q1[:-modulo]
-            I2 = I2[:-modulo]
-            Q2 = Q2[:-modulo]
-
-        I1 = np.reshape(I1, [num, segment])
-        Q1 = np.reshape(Q1, [num, segment])
-        I2 = np.reshape(I2, [num, segment])
-        Q2 = np.reshape(Q2, [num, segment])
-
-        CovMat = np.zeros([6, dispData['lags']*2+1])
+            for n in range(IQdata.shape[0]):
+                IQdata[n] = IQdata[n][:-modulo]
+        for n in range(IQdata.shape[0]):
+            IQdata[n] = np.reshape(IQdata[n], [num, segment])
+        CovMat = np.zeros([10, dispData['lags']*2+1])
         for i in range(num):
-            CovMat += getCovMatrix(I1[i], Q1[i], I2[i], Q2[i], lags=lags, hp=hp)
-
+            CovMat += getCovMatrix(IQdata[:, i], lags=lags, hp=hp)
         CovMat = CovMat / np.float(num)
         CovMat[4, :] = abs(1j*(CovMat[2, :]+CovMat[3, :]) + (CovMat[0, :] - CovMat[1, :]))
         CovMat[5, :] = np.angle(1j*(CovMat[2, :]+CovMat[3, :]) + (CovMat[0, :] - CovMat[1, :]))
-
     else:
-        CovMat = getCovMatrix(I1, Q1, I2, Q2, lags=lags, hp=hp)
-
+        CovMat = getCovMatrix(IQdata, lags=lags, hp=hp)
     return CovMat
 
 
@@ -183,14 +181,12 @@ def f1pN(tArray, lags0, d=1):
 
 def correctPhase(dispData, dicData):
     on, off, Fac1, Fac2 = prep_data(dispData, dicData)
-
     if dispData['Trigger correction']:
         CovMat = getCovMat_wrap(dispData, on)
         dMag = f1pN2(CovMat[4], dispData['lags'], d=1)
         logging.debug('Trigger correct ' + str(dMag) + 'pt')
         on.I1 = np.roll(on.I1, dMag)  # Correct 1pt trigger jitter
         on.Q1 = np.roll(on.Q1, dMag)
-
     if dispData['Phase correction']:
         CovMat = getCovMat_wrap(dispData, on)
         phase_index = np.argmax(CovMat[4])
@@ -199,7 +195,6 @@ def correctPhase(dispData, dicData):
         new = np.abs(1j*on.Q1 + on.I1)*np.exp(1j*(phase - phase_offset))
         on.I1 = np.real(new)
         on.Q1 = np.imag(new)
-
     CovMat = getCovMat_wrap(dispData, on)
     getCovMat_wrap(dispData, on)
     on.PSI_mag = CovMat[4]  # record the PSI magnitude value
@@ -208,61 +203,74 @@ def correctPhase(dispData, dicData):
     on.cQQ = CovMat[1]
     on.cIQ = CovMat[2]
     on.cQI = CovMat[3]
-
-
-def lowPass(data, LP=0):
-    if bool(LP):
-        data = gaussian_filter1d(data, LP)  # Gausfilter
-    return data
+    on.CovMat = CovMat
 
 
 def process(dispData, dicData):
     assignRaw(dispData, dicData)
     makeheader(dispData, dicData)
-    assignRaw(dispData, dicData)
-    correctPhase(dispData, dicData)
-    makehist2d(dispData, dicData)
-    if bool(dispData['Averages']):
-        avg(dispData, dicData)
+    get_data_avg(dispData, dicData)
 
 
-def avg(dispData, dicData):
+def get_data_avg(dispData, dicData):
     on, off, Fac1, Fac2 = prep_data(dispData, dicData)
-    on.IImap_avg = np.zeros_like(on.IImap)
-    on.QQmap_avg = np.zeros_like(on.QQmap)
-    on.IQmap_avg = np.zeros_like(on.IQmap)
-    on.QImap_avg = np.zeros_like(on.QImap)
-    # on.PSI_mag_avg = np.zeros_like(on.PSI_mag)
-    # on.PSI_phs_avg = np.zeros_like(on.PSI_phs)
-    on.cII_avg = np.zeros_like(on.cII)
-    on.cQQ_avg = np.zeros_like(on.cQQ)
-    on.cIQ_avg = np.zeros_like(on.cIQ)
-    on.cQI_avg = np.zeros_like(on.cQI)
+    on.map_avg = np.zeros([4, on.IImap.shape[0], on.IImap.shape[1]])
+    on.c_avg = np.zeros([6, dispData['lags']*2+1])
     for i in range(dispData['Averages']):
-        logging.debug('Working on trace number '+str(i+1))
         assignRaw(dispData, dicData)
+        logging.debug('Working on trace number '+str(dispData['Trace i, j, k']))
         correctPhase(dispData, dicData)
         makehist2d(dispData, dicData)
-        on.IImap_avg += on.IImap
-        on.QQmap_avg += on.QQmap
-        on.IQmap_avg += on.IQmap
-        on.QImap_avg += on.QImap
-        on.cII_avg += on.cII
-        on.cQQ_avg += on.cQQ
-        on.cIQ_avg += on.cIQ
-        on.cQI_avg += on.cQI
-        # on.PSI_mag_avg += on.PSI_mag
-        # on.PSI_phs_avg += on.PSI_phs
-        dispData['select'] = dispData['select'] + 201  # go to next data set
+        on.map_avg[0] += on.IImap
+        on.map_avg[1] += on.QQmap
+        on.map_avg[2] += on.IQmap
+        on.map_avg[3] += on.QImap
+        on.c_avg[0] += on.cII
+        on.c_avg[1] += on.cQQ
+        on.c_avg[2] += on.cIQ
+        on.c_avg[3] += on.cQI
+        dispData['select'] = dispData['select'] + 201  # for now a hard coded number!
+    on.c_avg = on.c_avg/dispData['Averages']
+    on.c_avg[4, :] = abs(1j*(on.c_avg[2]+on.c_avg[3]) + (on.c_avg[0] - on.c_avg[1]))
+    on.c_avg[5, :] = np.angle(1j*(on.c_avg[2]+on.c_avg[3]) + (on.c_avg[0] - on.c_avg[1]))
+    copy_avg_data(on)
 
-    on.IImap = on.IImap_avg/dispData['Averages']
-    on.IImap = on.IImap_avg/dispData['Averages']
-    on.QQmap = on.QQmap_avg/dispData['Averages']
-    on.IQmap = on.IQmap_avg/dispData['Averages']
-    on.QImap = on.QImap_avg/dispData['Averages']
-    on.cII = on.cII_avg/dispData['Averages']
-    on.cQQ = on.cQQ_avg/dispData['Averages']
-    on.cIQ = on.cIQ_avg/dispData['Averages']
-    on.cQI = on.cQI_avg/dispData['Averages']
-    on.PSI_mag = np.abs(1j*(on.cIQ + on.cQI) + (on.cII - on.cQQ))
-    on.PSI_phs = np.angle(1j*(on.cIQ + on.cQI) + (on.cII - on.cQQ))
+
+def copy_avg_data(on):
+    on.IImap = on.map_avg[0]
+    on.QQmap = on.map_avg[1]
+    on.IQmap = on.map_avg[2]
+    on.QImap = on.map_avg[3]
+    on.cII = on.c_avg[0]
+    on.cQQ = on.c_avg[1]
+    on.cIQ = on.c_avg[2]
+    on.cQI = on.c_avg[3]
+    on.PSI_mag = on.c_avg[4]
+    on.PSI_phs = on.c_avg[5]
+
+
+def process_all_powers(dispData, dicData):
+    assignRaw(dispData, dicData)
+    makeheader(dispData, dicData)
+    on, off, Fac1, Fac2 = prep_data(dispData, dicData)
+    start_select = dispData['select']
+    res = dicData['res']
+    powers = (dispData['Power values'])
+    res.IQmaps = np.zeros([4, powers, on.IImap.shape[0], on.IImap.shape[1]])
+    res.IQcs = np.zeros([4, powers, on.cII.shape[0]])
+    res.PSI = np.zeros([2, powers, on.PSI_map.shape[0]])
+    res.n = np.zeros([2, powers])
+    for p in range(powers):
+        get_data_avg(dispData, dicData)
+        res.IQmaps[0, p] = on.IImap
+        res.IQmaps[1, p] = on.QQmap
+        res.IQmaps[2, p] = on.IQmap
+        res.IQmaps[3, p] = on.QImap
+        res.IQcs[0, p] = on.cII
+        res.IQcs[1, p] = on.cQQ
+        res.IQcs[2, p] = on.cIQ
+        res.IQcs[3, p] = on.cQI
+        res.PSI[0, p] = on.PSI_mag
+        res.PSI[1, p] = on.PSI_phs
+        dispData['select'] = p + start_select
+        # store all results in big 3d maps

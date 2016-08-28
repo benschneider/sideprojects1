@@ -27,7 +27,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.init_defValues()
         self.update_table()
         self.update_data_disp()
-        self.init_UI()  # connect buttons etc to programs
+        self.init_UI()
         self.update_data_disp()
         self.widgetStyle = ("QWidget {background-color: #ffffff}," +
                             "QWidget::item {background: transparent," +
@@ -40,6 +40,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.dic_canvas = {}
         self.dispData = {}
         self.dicData = {}
+        self.dicData['res'] = empty_class()  # class to store results
         self.dispData['f1'] = 4.8e9
         self.dispData['f2'] = 4.1e9
         self.dispData['g1'] = 602.0e7
@@ -52,17 +53,20 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.dispData['Trigger correction'] = False
         self.dispData['FFT-Filter'] = False
         self.dispData['Segment Size'] = 0
-        self.dispData['Averages'] = 0
+        self.dispData['Averages'] = 1
         self.dispData['Low Pass'] = 0
+        self.dispData['Power values'] = 201
         self.dispData['Settings file'] = 'density_matrix.set'
 
     def init_UI(self):
+        ''' connect buttons to programs '''
         self.open_hdf5_on.triggered.connect(self.browse_hdf5_on)
         self.open_hdf5_off.triggered.connect(self.browse_hdf5_off)
         self.action_Quit.triggered.connect(qApp.quit)
         self.save_mtx_as.triggered.connect(self.browse_saveMtx)
         self.save_mtx.triggered.connect(self.saveMtx)
         self.makeHistogram.clicked.connect(self.make_Histogram)
+        self.Process_all.clicked.connect(self.process_all)
         self.tableWidget.itemChanged.connect(self.read_table)
         self.actionLoadPrev.triggered.connect(self.load_settings)
         self.actionSavePrev.triggered.connect(self.save_settings)
@@ -145,6 +149,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.dispData['Segment Size'] = int(eval(str(table.item(12, 0).text())))
         self.dispData['Low Pass'] = np.float(table.item(13, 0).text())
         self.dispData['Averages'] = np.int(table.item(14, 0).text())
+        self.dispData['Power values'] = np.int(table.item(15, 0).text())
         self.update_data_disp()
 
     def update_table(self):
@@ -166,6 +171,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         table.setItem(12, 0, QTableWidgetItem(str(d['Segment Size'])))
         table.setItem(13, 0, QTableWidgetItem(str(d['Low Pass'])))
         table.setItem(14, 0, QTableWidgetItem(str(d['Averages'])))
+        table.setItem(15, 0, QTableWidgetItem(str(d['Power values'])))
         table.resizeColumnsToContents()
         table.resizeRowsToContents()
         table.show()
@@ -194,7 +200,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.canvas_1 = FigureCanvas(fig)
         self.HistLayout.addWidget(self.canvas_1)
         self.canvas_1.draw()
-        self.toolbar_1 = NavigationToolbar(self.canvas_1, self.page_1, coordinates=True)
+        self.toolbar_1 = NavigationToolbar(self.canvas_1, self.tab_2, coordinates=True)
         self.HistLayout.addWidget(self.toolbar_1)
 
     def update_page_2(self, fig):
@@ -203,7 +209,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.canvas_2 = FigureCanvas(fig)
         self.CorrLayout.addWidget(self.canvas_2)
         self.canvas_2.draw()
-        self.toolbar_2 = NavigationToolbar(self.canvas_2, self.page_2, coordinates=True)
+        self.toolbar_2 = NavigationToolbar(self.canvas_2, self.cc_page, coordinates=True)
         self.CorrLayout.addWidget(self.toolbar_2)
 
     def update_page_3(self, fig):
@@ -212,7 +218,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.canvas_3 = FigureCanvas(fig)
         self.TMSLayout.addWidget(self.canvas_3)
         self.canvas_3.draw()
-        self.toolbar_3 = NavigationToolbar(self.canvas_3, self.page_3, coordinates=True)
+        self.toolbar_3 = NavigationToolbar(self.canvas_3, self.TMS_page, coordinates=True)
         self.TMSLayout.addWidget(self.toolbar_3)
 
     def clear_page_1(self):
@@ -238,6 +244,12 @@ class dApp(QMainWindow, Ui_MainWindow):
             self.canvas_3.close()
             self.TMSLayout.removeWidget(self.toolbar_3)
             self.toolbar_3.close()
+
+    def process_all(self):
+        logging.debug('start processing')
+        # functions.process(self.dispData, self.dicData)
+        self.make_Histogram()
+        pass
 
     def make_Histogram(self):
         functions.process(self.dispData, self.dicData)
@@ -294,10 +306,10 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.update_page_3(fig3)
 
 
-class stuff():
+class empty_class():
 
     def __init__(self):
-        self.temp = []
+        pass
 
 
 def main():
