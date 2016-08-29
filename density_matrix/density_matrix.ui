@@ -195,7 +195,7 @@
              </sizepolicy>
             </property>
             <property name="text">
-             <string>Process all dim1 levels (Long time!) (saves results using the basename)</string>
+             <string>Process all (Long time!) (saves results using the basename)</string>
             </property>
            </widget>
           </item>
