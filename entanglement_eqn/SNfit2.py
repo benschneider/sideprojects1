@@ -99,9 +99,12 @@ class variable_carrier():
         self.G1 = 7.67e7
         self.G2 = 7.6e7
         self.T = 0.007
+        self.snr = 1.0
+        self.cpt = 4.0
 
-    def load_and_go(self):
+    def load_and_go(self, gpFolder=False):
         '''
+        # gpfolder is a switch to make gnuplot change folder if required
         simply executes the sub definitions
         loads data,
         normalizes to SI units,
@@ -110,9 +113,12 @@ class variable_carrier():
         self.loaddata()
         self.loadCcor()
         self.norm_to_SI()
+        self.make_cvals()
         if not os.path.exists(self.resultfolder):
             os.makedirs(self.resultfolder)
-        gp.c('cd "' + self.resultfolder + '"')
+
+        if gpFolder:
+            gp.c('cd "' + self.resultfolder + '"')
 
     def loaddata(self):
         '''
@@ -159,7 +165,7 @@ class variable_carrier():
         self.cPD4 = ((abs(self.I1I2[self.lags0]) + abs(self.Q1Q2[self.lags0])) +
                      (abs(self.Q1I2[self.lags0]) + abs(self.I1Q2[self.lags0])))
 
-    def f1pN(self, array3, d=3):
+    def f1pN(self, array3, d=1):
         '''
         d is the distance of points to search for the peak position around the lags0 pos.
         Insert for example <I1I2> array data where the center peak is not at pos lags0
@@ -168,9 +174,10 @@ class variable_carrier():
         for i in range(array3.shape[2]):
             for j in range(array3.shape[1]):
                 tArray = array3[:, j, i]*1.0  # copy temp work array
-                distance = (np.argmax(np.abs(tArray[self.lags0-d:self.lags0+d+1])) - d)*-1
-                array3[:, j, i] = np.roll(tArray, distance)
-
+                # Only roll the data if the signal to Noise ratio is larger than 2
+                if np.max(np.abs(tArray[self.lags0-d:self.lags0+d+1])) > 2.0*np.var(tArray):
+                    distance = (np.argmax(np.abs(tArray[self.lags0-d:self.lags0+d+1])) - d)*-1
+                    array3[:, j, i] = np.roll(tArray, distance)
         return array3
 
     def norm_to_SI(self):
@@ -196,7 +203,7 @@ class variable_carrier():
             self.dIVlp = abs(self.dIV)
         # self.dIVlp[self.dIVlp > 100.0] = 0.0
 
-    def make_cvals(self, cpt=5, snr=2):
+    def make_cvals(self):
         '''
         Using this function to obtain the amount of noise present
         in the background while ignoring the regions where the cross corr...
@@ -210,19 +217,30 @@ class variable_carrier():
         V = np.zeros(8)
         for x2 in range(self.d2.pt):
             for x3 in range(self.d3.pt):
-                S[0], N[0] = get_SNR(self.I1I1[:, x2, x3], cpt)
-                S[1], N[1] = get_SNR(self.Q1Q1[:, x2, x3], cpt)
-                S[2], N[2] = get_SNR(self.I2I2[:, x2, x3], cpt)
-                S[3], N[3] = get_SNR(self.Q2Q2[:, x2, x3], cpt)
+                S[0], N[0] = get_SNR(self.I1I1[:, x2, x3], self.cpt)
+                S[1], N[1] = get_SNR(self.Q1Q1[:, x2, x3], self.cpt)
+                S[2], N[2] = get_SNR(self.I2I2[:, x2, x3], self.cpt)
+                S[3], N[3] = get_SNR(self.Q2Q2[:, x2, x3], self.cpt)
                 V[:4] = S[:4]
-                S[4], N[4] = get_SNR(self.I1I2[:, x2, x3], cpt)
-                S[5], N[5] = get_SNR(self.I1Q2[:, x2, x3], cpt)
-                S[6], N[6] = get_SNR(self.Q1I2[:, x2, x3], cpt)
-                S[7], N[7] = get_SNR(self.Q1Q2[:, x2, x3], cpt)
-                V[4] = S[4] if abs(S[4]) > snr * N[4] else 0.0
-                V[5] = S[5] if abs(S[5]) > snr * N[5] else 0.0
-                V[6] = S[6] if abs(S[6]) > snr * N[6] else 0.0
-                V[7] = S[7] if abs(S[7]) > snr * N[7] else 0.0
+                S[4], N[4] = get_SNR(self.I1I2[:, x2, x3], self.cpt)
+                S[5], N[5] = get_SNR(self.I1Q2[:, x2, x3], self.cpt)
+                S[6], N[6] = get_SNR(self.Q1I2[:, x2, x3], self.cpt)
+                S[7], N[7] = get_SNR(self.Q1Q2[:, x2, x3], self.cpt)
+                # Max values
+                # V[4] = np.sign(S[4]) * (abs(S[4]) + abs(N[4])) if (abs(S[4]) - self.snr*abs(N[4])) > 0.0 else 0.0
+                # V[5] = np.sign(S[5]) * (abs(S[5]) + abs(N[5])) if (abs(S[5]) - self.snr*abs(N[5])) > 0.0 else 0.0
+                # V[6] = np.sign(S[6]) * (abs(S[6]) + abs(N[6])) if (abs(S[6]) - self.snr*abs(N[6])) > 0.0 else 0.0
+                # V[7] = np.sign(S[7]) * (abs(S[7]) + abs(N[7])) if (abs(S[7]) - self.snr*abs(N[7])) > 0.0 else 0.0
+                # Min Values
+                # V[4] = np.sign(S[4]) * (abs(S[4]) - abs(N[4])) if (abs(S[4]) - self.snr*abs(N[4])) > 0.0 else 0.0
+                # V[5] = np.sign(S[5]) * (abs(S[5]) - abs(N[5])) if (abs(S[5]) - self.snr*abs(N[5])) > 0.0 else 0.0
+                # V[6] = np.sign(S[6]) * (abs(S[6]) - abs(N[6])) if (abs(S[6]) - self.snr*abs(N[6])) > 0.0 else 0.0
+                # V[7] = np.sign(S[7]) * (abs(S[7]) - abs(N[7])) if (abs(S[7]) - self.snr*abs(N[7])) > 0.0 else 0.0
+                # Med Values
+                V[4] = S[4] if (abs(S[4]) - self.snr*abs(N[4])) > 0.0 else 0.0
+                V[5] = S[5] if (abs(S[5]) - self.snr*abs(N[5])) > 0.0 else 0.0
+                V[6] = S[6] if (abs(S[6]) - self.snr*abs(N[6])) > 0.0 else 0.0
+                V[7] = S[7] if (abs(S[7]) - self.snr*abs(N[7])) > 0.0 else 0.0
                 self.Sarr[:, x2, x3] = S
                 self.Narr[:, x2, x3] = N
                 self.Varr[:, x2, x3] = V
@@ -245,7 +263,7 @@ def calU(z1, lags0, cpt):
     '''
     z2 = z1[:lags0 - cpt] * 1.0
     z3 = z1[lags0 + cpt:] * 1.0
-    return abs(np.sqrt(np.var(np.concatenate([z2, z3]))))/2.0
+    return abs(np.sqrt(np.var(np.concatenate([z2, z3]))))
 
 
 def getOffset(z1, lags0, cpt):
@@ -257,6 +275,22 @@ def getOffset(z1, lags0, cpt):
     z2 = z1[:lags0 - cpt] * 1.0
     z3 = z1[lags0 + cpt:] * 1.0
     return abs(np.mean(np.concatenate([z2, z3])))
+
+
+def find_absPeakPos(someArray, dist=1):
+    '''
+    finds within a short range around the center of
+    an array the peak/ dip value position
+    and returns value at the position.
+    1. abs(someArray)
+    2. crop someArray with the range
+    3. max(someArray)
+    assumes that the mean of someArray = 0
+    '''
+    Array = np.abs(someArray * 1.0)
+    A0 = int(len(Array)/2)  # A0 center pos (round down)
+    pos = np.argmax(Array[A0-dist:A0+dist+1])+A0-dist
+    return pos
 
 
 def find_switch(array, threshold=1e-9):
@@ -278,22 +312,6 @@ def find_switch(array, threshold=1e-9):
                 return idx
             idx = mm
         a = val
-
-
-def find_absPeakPos(someArray, dist=1):
-    '''
-    finds within a short range around the center of
-    an array the peak/ dip value position
-    and returns value at the position.
-    1. abs(someArray)
-    2. crop someArray with the range
-    3. max(someArray)
-    assumes that the mean of someArray = 0
-    '''
-    Array = np.abs(someArray * 1.0)
-    A0 = int(len(Array)/2)  # A0 center pos (round down)
-    pos = np.argmax(Array[A0-dist:A0+dist+1])+A0-dist
-    return pos
 
 
 def xderiv(d2MAT, dx=1.0, axis=0):
