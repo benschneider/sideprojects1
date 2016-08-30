@@ -63,9 +63,20 @@ class dApp(QMainWindow, Ui_MainWindow):
         dD['dim1 pt'] = 201
         dD['dim1 start'] = 2.03
         dD['dim1 stop'] = 0.03
-        # dD['combine'] = 2
-        dD['dim1 lin'] = np.linspace(dD['dim1 start'], dD['dim1 stop'], dD['dim1 pt'])
+        dD['dim1 name'] = 'RF power'
+        dD['dim2 pt'] = 100
+        dD['dim2 start'] = 0
+        dD['dim2 stop'] = 1
+        dD['dim2 name'] = 'Magnet'
+        dD['dim3 pt'] = 100
+        dD['dim3 start'] = 0
+        dD['dim3 stop'] = 1
+        dD['dim3 name'] = 'Nothing'
+        dD['Process Num'] = 'Nothing'
         dD['Settings file'] = 'density_matrix.set'
+        dD['dim1 lin'] = np.linspace(dD['dim1 start'], dD['dim1 stop'], dD['dim1 pt'])
+        dD['dim2 lin'] = np.linspace(dD['dim2 start'], dD['dim2 stop'], dD['dim2 pt'])
+        dD['dim3 lin'] = np.linspace(dD['dim3 start'], dD['dim3 stop'], dD['dim3 pt'])
 
     def init_UI(self):
         ''' connect buttons to programs '''

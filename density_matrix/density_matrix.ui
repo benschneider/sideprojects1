@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>871</width>
-    <height>808</height>
+    <height>852</height>
    </rect>
   </property>
   <property name="font">
@@ -108,7 +108,7 @@
             </row>
             <row>
              <property name="text">
-              <string>Selected</string>
+              <string>Selected Trace #</string>
              </property>
             </row>
             <row>
@@ -158,7 +158,7 @@
             </row>
             <row>
              <property name="text">
-              <string>dim1 levels (to process)</string>
+              <string>dim1 pt</string>
              </property>
             </row>
             <row>
@@ -169,6 +169,56 @@
             <row>
              <property name="text">
               <string>dim1 stop</string>
+             </property>
+            </row>
+            <row>
+             <property name="text">
+              <string>dim1 name</string>
+             </property>
+            </row>
+            <row>
+             <property name="text">
+              <string>dim2 pt</string>
+             </property>
+            </row>
+            <row>
+             <property name="text">
+              <string>dim2 start</string>
+             </property>
+            </row>
+            <row>
+             <property name="text">
+              <string>dim2 stop</string>
+             </property>
+            </row>
+            <row>
+             <property name="text">
+              <string>dim2 name</string>
+             </property>
+            </row>
+            <row>
+             <property name="text">
+              <string>dim3 pt</string>
+             </property>
+            </row>
+            <row>
+             <property name="text">
+              <string>dim3 start</string>
+             </property>
+            </row>
+            <row>
+             <property name="text">
+              <string>dim3 stop</string>
+             </property>
+            </row>
+            <row>
+             <property name="text">
+              <string>dim3 name</string>
+             </property>
+            </row>
+            <row>
+             <property name="text">
+              <string>Process num</string>
              </property>
             </row>
             <column>
@@ -240,7 +290,7 @@
                <x>0</x>
                <y>0</y>
                <width>821</width>
-               <height>660</height>
+               <height>704</height>
               </rect>
              </property>
              <attribute name="label">
@@ -257,8 +307,8 @@
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>100</width>
-               <height>30</height>
+               <width>98</width>
+               <height>28</height>
               </rect>
              </property>
              <attribute name="label">
@@ -289,8 +339,8 @@
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>100</width>
-               <height>30</height>
+               <width>98</width>
+               <height>28</height>
               </rect>
              </property>
              <attribute name="label">
@@ -308,7 +358,7 @@
                <x>0</x>
                <y>0</y>
                <width>821</width>
-               <height>660</height>
+               <height>704</height>
               </rect>
              </property>
              <attribute name="label">

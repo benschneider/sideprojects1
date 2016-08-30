@@ -228,13 +228,13 @@ def get_data_avg(dispData, dicData):
         res.IQmapM_avg += res.IQmapM
         res.c_avg += on.CovMat
         res.c_avg_off += off.CovMat
-        res.n[0] += (on.CovMat[6] + on.CovMat[7] - off.CovMat[6] - off.CovMat[7])[lags] + 0.5
-        res.n[1] += (on.CovMat[8] + on.CovMat[9] - off.CovMat[8] - off.CovMat[9])[lags] + 0.5
+        res.n[0] += (on.CovMat[6] + on.CovMat[7] - off.CovMat[6] - off.CovMat[7])[lags]
+        res.n[1] += (on.CovMat[8] + on.CovMat[9] - off.CovMat[8] - off.CovMat[9])[lags]
         dd['select'] = dd['select'] + 201  # for now a hard coded number!
     # dd['select'] = dd['select'] + 1 - 201
 
     # res.IQmapM_avg = res.IQmapM_avg/dd['Averages']
-    res.n = res.n / dd['Averages']
+    res.n = 0.5 + np.abs(res.n) / dd['Averages']  # force averaged value to be larger than 0.5
     res.c_avg_off = res.c_avg_off / dd['Averages']
     res.c_avg = res.c_avg / dd['Averages']
     if isinstance(res.c_avg[0:3], complex):
@@ -253,8 +253,8 @@ def get_data_avg(dispData, dicData):
 def get_sq_ineq(psi, n1, n2, f1, f2, lags):
     noise = np.sqrt(np.var(2.0*np.abs(psi)/(n1+n2)))
     logging.debug('Mag Psi sqrt(Variance): ' + str(noise))
-    squeezing = np.abs(psi)[lags] / ((n1 + n2) / 2.0)  # includes zpf
-    logging.debug(('n1: ' + str(n1) + 'n2: ' + str(n2)))
+    squeezing = np.max(np.abs(psi) / ((n1 + n2) / 2.0))  # includes zpf
+    logging.debug(('n1: ' + str(n1) + ' n2: ' + str(n2)))
     a = 2.0 * np.sqrt(f1 * f2) * np.abs(n1 + n2 - 1)
     b = f1 * (2.0 * n1 + 1.0 - 0.5) + f2 * (2.0 * n2 + 1.0 - 0.5)
     ineq = a / b   # does not include zpf
