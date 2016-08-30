@@ -14,6 +14,7 @@ import functions
 import cPickle
 import subprocess
 import threading
+import PyGnuplot as gp
 
 Ui_MainWindow, QMainWindow = loadUiType('density_matrix.ui')
 logging.basicConfig(level=logging.DEBUG, format='[%(threadName)-10s] %(message)s',)
@@ -47,10 +48,10 @@ class dApp(QMainWindow, Ui_MainWindow):
         dD = self.dispData
         dD['f1'] = 4.8e9
         dD['f2'] = 4.1e9
-        dD['g1'] = 602.0e7
-        dD['g2'] = 685.35e7
+        dD['g1'] = 6.4757e9  # <- fixed R # 602.0e7  # dR
+        dD['g2'] = 7.5135e9  # <- fixed R # 685.35e7  # dR
         dD['B'] = 5e5
-        dD['select'] = 1
+        dD['select'] = 0
         dD['mapdim'] = [20, 20]
         dD['lags'] = 1000
         dD['Phase correction'] = True
@@ -62,6 +63,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         dD['dim1 pt'] = 201
         dD['dim1 start'] = 2.03
         dD['dim1 stop'] = 0.03
+        # dD['combine'] = 2
         dD['dim1 lin'] = np.linspace(dD['dim1 start'], dD['dim1 stop'], dD['dim1 pt'])
         dD['Settings file'] = 'density_matrix.set'
 
@@ -117,12 +119,13 @@ class dApp(QMainWindow, Ui_MainWindow):
     def saveMtx(self):
         if self.dispData['mtx ']:
             savename = self.dispData['mtx ']
+            res = self.dicData['res']  # this contains the calculation results
             logging.debug('Save .mtx:' + str(savename))
             on = self.dicData['hdf5_on']
-            savemtx(savename + 'cII.mtx', np.expand_dims(on.IIdmap, axis=0), on.headerII)
-            savemtx(savename + 'cQQ.mtx', np.expand_dims(on.QQdmap, axis=0), on.headerQQ)
-            savemtx(savename + 'cIQ.mtx', np.expand_dims(on.IQdmap, axis=0), on.headerIQ)
-            savemtx(savename + 'cQI.mtx', np.expand_dims(on.QIdmap, axis=0), on.headerQI)
+            savemtx(savename + 'cII.mtx', np.expand_dims(res.IQmapM_avg[0], axis=0), on.headerII)
+            savemtx(savename + 'cQQ.mtx', np.expand_dims(res.IQmapM_avg[1], axis=0), on.headerQQ)
+            savemtx(savename + 'cIQ.mtx', np.expand_dims(res.IQmapM_avg[2], axis=0), on.headerIQ)
+            savemtx(savename + 'cQI.mtx', np.expand_dims(res.IQmapM_avg[3], axis=0), on.headerQI)
             self.update_data_disp()
 
     def open_mtx_spyview(self):
@@ -296,23 +299,44 @@ class dApp(QMainWindow, Ui_MainWindow):
         logging.debug('start processing')
         functions.process_all_points(self.dispData, self.dicData)
         res = self.dicData['res']
+
         fig1 = Figure(facecolor='white', edgecolor='white')
         pl1 = fig1.add_subplot(1, 1, 1)
-        pl1.plot(res.phns_avg[:, 0], label='f1')
-        pl1.plot(res.phns_avg[:, 1], label='f2')
+        pl1.plot(res.ns[:, 0], label='f1')
+        pl1.plot(res.ns[:, 1], label='f2')
         pl1.set_title('Photon numbers')
+
         fig2 = Figure(facecolor='white', edgecolor='white')
         pl3 = fig2.add_subplot(2, 1, 1)
         pl4 = fig2.add_subplot(2, 1, 2)
+        pl3.plot(res.sqs, label='Sq Mag')
+        pl3.plot(res.ineqs, label='Ineq_req')
         pl3.set_title('Squeezing Mag')
-        lags = self.dispData['lags']
-        pl3.plot(res.cs_avg[:, 4, lags], label='Squeezing')
-        pl3.plot(res.ineq_req, label='Ineq_req')
-        pl3.set_title('Squeezing Phase')
-        pl4.plot(res.cs_avg[:, 5, lags])
+        pl4.plot(res.sqphs)
+        pl4.set_title('Squeezing Phase')
+
         self.update_page_5(fig1)
         self.update_page_6(fig2)
         self.update_table()
+        self.save_processed()
+
+    def save_processed(self):
+        if self.dispData['mtx ']:
+            savename = self.dispData['mtx ']
+            logging.debug('Save data as mtx files: ' + str(savename))
+            on = self.dicData['hdf5_on']
+            res = self.dicData['res']  # this contains the calculation results
+            savemtx(savename + 'IImaps.mtx', res.IQmapMs_avg[:, 0, :, :], on.headerII)
+            savemtx(savename + 'QQmaps.mtx', res.IQmapMs_avg[:, 1, :, :], on.headerQQ)
+            savemtx(savename + 'IQmaps.mtx', res.IQmapMs_avg[:, 2, :, :], on.headerIQ)
+            savemtx(savename + 'QImaps.mtx', res.IQmapMs_avg[:, 3, :, :], on.headerQI)
+            savemtx(savename + 'cs_avg_QI.mtx', res.cs_avg, on.headerQI)
+            savemtx(savename + 'cs_avg_QI_off.mtx', res.cs_avg_off, on.headerQI)
+            filename = 'n1n2sqIneq.dat'
+            gp.s([res.ns[:, 0], res.ns[:, 1], res.sqs, res.ineqs], filename=filename)
+            gp.c('plot "' + filename + '" u 3 w lp t "Squeezing"')
+            gp.c('replot "' + filename + '" u 4 w lp t "Ineq"')
+            self.update_data_disp()
 
     def make_Histogram(self):
         functions.process(self.dispData, self.dicData)
@@ -366,8 +390,8 @@ class dApp(QMainWindow, Ui_MainWindow):
         xTMS2 = fig3.add_subplot(1, 2, 2)
         xTMS1.set_title('Magnitude')
         xTMS2.set_title('Phase')
-        xTMS1.plot(self.dicData['xaxis'], res.c_avg[4])
-        xTMS2.plot(self.dicData['xaxis'], res.c_avg[5])
+        xTMS1.plot(self.dicData['xaxis'], np.abs(res.psi_avg[0]))
+        xTMS2.plot(self.dicData['xaxis'], np.angle(res.psi_avg[0]))
         fig3.tight_layout()
         self.update_page_3(fig3)
 
