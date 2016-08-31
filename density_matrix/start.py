@@ -343,8 +343,8 @@ class dApp(QMainWindow, Ui_MainWindow):
             savemtx(savename + 'QImaps.mtx', res.IQmapMs_avg[:, 3, :, :], on.headerQI)
             savemtx(savename + 'cs_avg_QI.mtx', res.cs_avg, on.headerQI)
             savemtx(savename + 'cs_avg_QI_off.mtx', res.cs_avg_off, on.headerQI)
-            filename = 'n1n2sqIneq.dat'
-            gp.s([res.ns[:, 0], res.ns[:, 1], res.sqs, res.ineqs], filename=filename)
+            filename = 'n1n2sqIneqRawSQNoise.dat'
+            gp.s([res.ns[:, 0], res.ns[:, 1], res.sqs, res.ineqs, res.noise], filename=filename)
             gp.c('plot "' + filename + '" u 3 w lp t "Squeezing"')
             gp.c('replot "' + filename + '" u 4 w lp t "Ineq"')
             self.update_data_disp()

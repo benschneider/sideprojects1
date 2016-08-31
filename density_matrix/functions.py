@@ -168,7 +168,8 @@ def getCovMat_wrap(dispData, data):
 
 
 def f1pN2(tArray, lags0, d=1):
-    if np.max(np.abs(tArray[lags0 - d:lags0 + d + 1])) > 4.0 * np.var(np.abs(tArray)):
+    squeezing_noise = np.sqrt(np.var(np.abs(tArray)))  # including the peak matters little
+    if np.max(np.abs(tArray[lags0 - d:lags0 + d + 1])) > 2.0 * squeezing_noise:
         distance = (np.argmax(tArray[lags0 - d:lags0 + d + 1]) - d) * -1
     else:
         distance = 0
@@ -184,7 +185,7 @@ def correctPhase(dispData, dicData):
     on, off, Fac1, Fac2 = prep_data(dispData, dicData)
     if dispData['Trigger correction']:
         CovMat = getCovMat_wrap(dispData, on)
-        dMag = f1pN(CovMat[4], dispData['lags'], d=1)
+        dMag = f1pN2(CovMat[4], dispData['lags'], d=1)
         logging.debug('Trigger correct ' + str(dMag) + 'pt')
         on.I1 = np.roll(on.I1, dMag)  # Correct 1pt trigger jitter
         on.Q1 = np.roll(on.Q1, dMag)
@@ -215,15 +216,13 @@ def get_data_avg(dispData, dicData):
     res.n = np.zeros(2)  # photon number
     res.IQmapM_avg = np.zeros([4, mapdim[0], mapdim[1]])  # histogram map
     res.c_avg = np.zeros([10, lags * 2 + 1])  # Covariance Map inc PSI
-    res.c_avg_off = np.zeros([10, lags * 2 + 1])  # Covariance Map inc PSI
-    res.psi_avg = 1j * np.zeros([1, lags * 2 + 1])  # Covariance Map inc PSI
-
-    # for j in range(dd['combine']):
+    res.c_avg_off = np.zeros([10, lags * 2 + 1])  # Covariance Map
+    res.psi_avg = 1j * np.zeros([1, lags * 2 + 1])  # PSI
     for i in range(dd['Averages']):
         assignRaw(dd, dicData)
         logging.debug('Working on trace number ' + str(dd['Trace i, j, k']))
         logging.debug('dim1 value :' + str(dd['dim1 lin'][int(dd['Trace i, j, k'][0])]))
-        correctPhase(dd, dicData)  # assigned res.CovMat
+        correctPhase(dd, dicData)  # assigns res.CovMat
         makehist2d(dd, dicData)
         res.IQmapM_avg += res.IQmapM
         res.c_avg += on.CovMat
@@ -231,14 +230,10 @@ def get_data_avg(dispData, dicData):
         res.n[0] += (on.CovMat[6] + on.CovMat[7] - off.CovMat[6] - off.CovMat[7])[lags]
         res.n[1] += (on.CovMat[8] + on.CovMat[9] - off.CovMat[8] - off.CovMat[9])[lags]
         dd['select'] = dd['select'] + 201  # for now a hard coded number!
-    # dd['select'] = dd['select'] + 1 - 201
 
-    # res.IQmapM_avg = res.IQmapM_avg/dd['Averages']
     res.n = 0.5 + np.abs(res.n) / dd['Averages']  # force averaged value to be larger than 0.5
     res.c_avg_off = res.c_avg_off / dd['Averages']
     res.c_avg = res.c_avg / dd['Averages']
-    if isinstance(res.c_avg[0:3], complex):
-        print 'res.c_avg is complex!'
     res.psi_avg[0, :] = (res.c_avg[0] * 1.0 - res.c_avg[1] * 1.0 +
                          1j * (res.c_avg[2] * 1.0 + res.c_avg[3] * 1.0))
     res.sq, res.ineq, res.noise = get_sq_ineq(res.psi_avg[0],
@@ -251,9 +246,10 @@ def get_data_avg(dispData, dicData):
 
 
 def get_sq_ineq(psi, n1, n2, f1, f2, lags):
-    noise = np.sqrt(np.var(2.0*np.abs(psi)/(n1+n2)))
+    '''returns the ammount of squeezing, ineq and noise'''
+    noise = np.sqrt(np.var(np.abs(psi)))
     logging.debug('Mag Psi sqrt(Variance): ' + str(noise))
-    squeezing = np.max(np.abs(psi) / ((n1 + n2) / 2.0))  # includes zpf
+    squeezing = np.max((np.abs(psi)-np.mean(psi)) / ((n1 + n2) / 2.0))  # includes zpf
     logging.debug(('n1: ' + str(n1) + ' n2: ' + str(n2)))
     a = 2.0 * np.sqrt(f1 * f2) * np.abs(n1 + n2 - 1)
     b = f1 * (2.0 * n1 + 1.0 - 0.5) + f2 * (2.0 * n2 + 1.0 - 0.5)
