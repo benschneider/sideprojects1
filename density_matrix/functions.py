@@ -169,11 +169,11 @@ def getCovMat_wrap(dispData, data):
 
 def f1pN2(tArray, lags0, d=1):
     squeezing_noise = np.sqrt(np.var(np.abs(tArray)))  # including the peak matters little
-    if np.max(np.abs(tArray[lags0 - d:lags0 + d + 1])) > 2.0 * squeezing_noise:
-        distance = (np.argmax(tArray[lags0 - d:lags0 + d + 1]) - d) * -1
-    else:
-        distance = 0
+    if np.max(np.abs(tArray[lags0 - d:lags0 + d + 1])) < 4.0 * squeezing_noise:
         logging.debug('SN ratio too low: Can not find trigger position')
+        distance = 0
+    else:
+        distance = (np.argmax(tArray[lags0 - d:lags0 + d + 1]) - d) * -1
     return distance
 
 
