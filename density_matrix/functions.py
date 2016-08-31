@@ -249,7 +249,7 @@ def get_sq_ineq(psi, n1, n2, f1, f2, lags):
     '''returns the ammount of squeezing, ineq and noise'''
     noise = np.sqrt(np.var(np.abs(psi)))
     logging.debug('Mag Psi sqrt(Variance): ' + str(noise))
-    squeezing = (np.max(np.abs(psi)) - np.mean(psi[0:lags - 10])) / ((n1 + n2) / 2.0)  # w. zpf
+    squeezing = (np.max(np.abs(psi)) - np.mean(abs(psi[0:lags - 10]))) / ((n1 + n2) / 2.0)  # w. zpf
     logging.debug(('n1: ' + str(n1) + ' n2: ' + str(n2)))
     a = 2.0 * np.sqrt(f1 * f2) * np.abs(n1 + n2 - 1)
     b = f1 * (2.0 * n1 + 1.0 - 0.5) + f2 * (2.0 * n2 + 1.0 - 0.5)
