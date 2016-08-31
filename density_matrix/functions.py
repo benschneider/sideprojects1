@@ -236,6 +236,8 @@ def get_data_avg(dispData, dicData):
     res.c_avg = res.c_avg / dd['Averages']
     res.psi_avg[0, :] = (res.c_avg[0] * 1.0 - res.c_avg[1] * 1.0 +
                          1j * (res.c_avg[2] * 1.0 + res.c_avg[3] * 1.0))
+    res.psi_avg[0, :] = res.psi_avg[0, :] - np.mean(res.psi_avg[0, 0:lags-10])  # remove offset
+
     res.sq, res.ineq, res.noise = get_sq_ineq(res.psi_avg[0],
                                               res.n[0],
                                               res.n[1],
@@ -249,7 +251,7 @@ def get_sq_ineq(psi, n1, n2, f1, f2, lags):
     '''returns the ammount of squeezing, ineq and noise'''
     noise = np.sqrt(np.var(np.abs(psi)))
     logging.debug('Mag Psi sqrt(Variance): ' + str(noise))
-    squeezing = (np.max(np.abs(psi)) - np.mean(abs(psi[0:lags - 10]))) / ((n1 + n2) / 2.0)  # w. zpf
+    squeezing = np.max(np.abs(psi)) / ((n1 + n2) / 2.0)  # w. zpf
     logging.debug(('n1: ' + str(n1) + ' n2: ' + str(n2)))
     a = 2.0 * np.sqrt(f1 * f2) * np.abs(n1 + n2 - 1)
     b = f1 * (2.0 * n1 + 1.0 - 0.5) + f2 * (2.0 * n2 + 1.0 - 0.5)
