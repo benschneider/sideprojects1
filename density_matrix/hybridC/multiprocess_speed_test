@@ -1,0 +1,42 @@
+from multiprocessing import Process, Queue
+from time import sleep
+
+
+class empty_class():
+
+    def __init__(self):
+        pass
+
+
+def kk(in_value):
+    return 'test', in_value * 1.3
+
+
+def f(q, some_object):
+    var1 = some_object.val1
+    some_object.val2 = var1 * 2
+    some_object.val3 = kk(var1 + some_object.sleeper)
+    sleep(some_object.sleeper)
+    q.put(some_object)
+
+
+if __name__ == '__main__':
+    queue_timeout = 2  # how many seconds to wait for a que to finish
+    myObj = empty_class()
+    myObj.val1 = 2.0
+    myObj.sleeper = 2.0
+    q = 4*[None]
+    p = 4*[None]
+    q1 = Queue()
+    q2 = Queue()
+    p = Process(target=f, args=(q1, myObj))
+    p.start()
+    myObj.sleeper = 1.0
+    p2 = Process(target=f, args=(q2, myObj))
+    p2.start()
+    p.join()
+    p2.join()
+    newobj1 = q1.get(True, queue_timeout)
+    newobj2 = q2.get(True, queue_timeout)
+    print newobj1.sleeper, newobj1.val3
+    print newobj2.sleeper, newobj2.val3
