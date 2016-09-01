@@ -12,6 +12,7 @@ mtx_files
 xsection.dat
 *.dat
 *.img_proc
+.idea
 notes
 entanglement_eqn/output
 entanglement_eqn/*.png
