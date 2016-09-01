@@ -37,7 +37,7 @@ vc.filein10 = subfolder + '1150SN1_CovMat_cI1Q1.mtx'
 vc.filein11 = subfolder + '1150SN1_CovMat_cI2Q2.mtx'
 vc.filein5 = '1150SN1_Vx1k.mtx'
 vc.RTR = 1012 * 1e3  # RT resistor for
-vc.load_and_go()
+vc.load_and_go(gpFolder=True)
 
 # create crop vector for the fitting
 crop_within = SNfit.find_nearest(vc.I, -6.0e-6), SNfit.find_nearest(vc.I, 6.0e-6)

@@ -87,8 +87,8 @@ class variable_carrier():
         self.Z0 = 50.0
         self.Zopt = 50.0
         self.B = 1e5
-        self.f1 = 4.1e9
-        self.f2 = 4.8e9
+        self.f1 = 4.8e9
+        self.f2 = 4.1e9
         self.RTR = 1009.1 * 1e3           # Ib Resistance in Ohm
         self.RG = 1000.0                  # Pre Amp gain factor
         self.cvals = {}         # Cross corr dictionary with key value elements
@@ -247,7 +247,7 @@ class variable_carrier():
 
 
 def get_SNR(array, distance):
-    pos0 = find_absPeakPos(array, distance)
+    pos0 = int(find_absPeakPos(array, distance))
     offset = getOffset(array, pos0, 4)
     signal = array[pos0] - offset
     noise = calU(array, pos0, distance)
@@ -261,6 +261,8 @@ def calU(z1, lags0, cpt):
     and returns the square root variance of this new array.
     Get background noise value of the cross correlation data.
     '''
+    lags0 = int(lags0)
+    cpt = int(cpt)
     z2 = z1[:lags0 - cpt] * 1.0
     z3 = z1[lags0 + cpt:] * 1.0
     return abs(np.sqrt(np.var(np.concatenate([z2, z3]))))
@@ -287,6 +289,7 @@ def find_absPeakPos(someArray, dist=1):
     3. max(someArray)
     assumes that the mean of someArray = 0
     '''
+    dist = int(dist)
     Array = np.abs(someArray * 1.0)
     A0 = int(len(Array)/2)  # A0 center pos (round down)
     pos = np.argmax(Array[A0-dist:A0+dist+1])+A0-dist
