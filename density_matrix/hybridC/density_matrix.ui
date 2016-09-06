@@ -301,7 +301,7 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QPushButton" name="pushButton">
+                 <widget class="QPushButton" name="calc_hyb_button">
                   <property name="text">
                    <string>Calculate hybrid data</string>
                   </property>
@@ -347,8 +347,8 @@
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>821</width>
-               <height>704</height>
+               <width>100</width>
+               <height>30</height>
               </rect>
              </property>
              <attribute name="label">
@@ -415,8 +415,8 @@
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>821</width>
-               <height>704</height>
+               <width>100</width>
+               <height>30</height>
               </rect>
              </property>
              <attribute name="label">
@@ -429,6 +429,16 @@
              </layout>
             </widget>
            </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="tab_covmat">
+         <attribute name="title">
+          <string>3d Covariance Matrix</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="verticalLayout_5">
+          <item>
+           <layout class="QVBoxLayout" name="covmat_field"/>
           </item>
          </layout>
         </widget>

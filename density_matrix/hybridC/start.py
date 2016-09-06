@@ -14,9 +14,12 @@ import cPickle
 import subprocess
 import threading
 import PyGnuplot as gp
+from histogram_plot import plot3dHist2
 
 Ui_MainWindow, QMainWindow = loadUiType('density_matrix.ui')
-logging.basicConfig(level=logging.DEBUG, format='[%(threadName)-10s] %(message)s',)
+# logging.basicConfig(level=logging.DEBUG, format='[%(threadName)-10s] %(message)s',)
+# formatter = logging.Formatter("%(levelname)s: %(asctime)s - %(name)s - %(process)s - %(message)s")
+logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(asctime)s - [%(threadName)-10s] - %(process)s - %(message)s')
 
 
 class dApp(QMainWindow, Ui_MainWindow):
@@ -40,6 +43,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.canvas_4 = False
         self.canvas_5 = False
         self.canvas_6 = False
+        self.canvas_7 = False
         self.dic_canvas = {}
         self.dispData = {}
         self.dicData = {}
@@ -73,7 +77,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         dD['dim3 start'] = 0
         dD['dim3 stop'] = 1
         dD['dim3 name'] = 'Nothing'
-        dD['Process Num'] = 'Nothing'
+        dD['Process Num'] = 1
         dD['Settings file'] = 'density_matrix.set'
         dD['dim1 lin'] = np.linspace(dD['dim1 start'], dD['dim1 stop'], dD['dim1 pt'])
         dD['dim2 lin'] = np.linspace(dD['dim2 start'], dD['dim2 stop'], dD['dim2 pt'])
@@ -88,6 +92,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.save_mtx.triggered.connect(self.saveMtx)
         self.makeHistogram.clicked.connect(self.make_Histogram)
         self.Process_all.clicked.connect(self.process_all)
+        self.calc_hyb_button.clicked.connect(self.process_hybrid)
         self.tableWidget.itemChanged.connect(self.read_table)
         self.actionLoadPrev.triggered.connect(self.load_settings)
         self.actionSavePrev.triggered.connect(self.save_settings)
@@ -107,10 +112,19 @@ class dApp(QMainWindow, Ui_MainWindow):
     def load_settings(self):
         with open(self.dispData['Settings file'], "rb") as myFile:
             self.dispData = cPickle.load(myFile)
-        functions.load_dataset(self.dispData, self.dicData, 'hdf5_on')
-        functions.load_dataset(self.dispData, self.dicData, 'hdf5_off')
+        if 'hdf5_on' in self.dispData:
+            functions.load_dataset(self.dispData, self.dicData, 'hdf5_on')
+            functions.load_dataset(self.dispData, self.dicData, 'hdf5_off')
+            logging.debug('settings and files loaded')
+        elif 'on11' in self.dispData:
+            functions.load_dataset(self.dispData, self.dicData, 'on11')
+            functions.load_dataset(self.dispData, self.dicData, 'on22')
+            functions.load_dataset(self.dispData, self.dicData, 'on12')
+            functions.load_dataset(self.dispData, self.dicData, 'on21')
+            functions.load_dataset(self.dispData, self.dicData, 'off12')
+            functions.load_dataset(self.dispData, self.dicData, 'off21')
+            logging.debug('settings and files loaded')
         self.update_table()
-        logging.debug('settings and files loaded')
 
     def add_hdf5data(self, frequency_configuration):
         dialog_txt = 'Pick a file for :' + str(frequency_configuration)
@@ -146,6 +160,7 @@ class dApp(QMainWindow, Ui_MainWindow):
             d.setDaemon(True)
             d.start()
 
+
     def _spyview(self):
         logging.debug('Spyview started')
         basen = self.dispData['mtx ']
@@ -153,9 +168,9 @@ class dApp(QMainWindow, Ui_MainWindow):
                          basen + 'cIQ.mtx', basen + 'cQI.mtx'])
         logging.debug('Spyview closed')
 
+
     def read_table(self):
         table = self.tableWidget
-        # logging.debug('Read Table Widget')
         dD = self.dispData
         dD['f1'] = np.float(table.item(0, 0).text())
         dD['f2'] = np.float(table.item(1, 0).text())
@@ -175,8 +190,22 @@ class dApp(QMainWindow, Ui_MainWindow):
         dD['dim1 pt'] = np.int(table.item(15, 0).text())
         dD['dim1 start'] = np.float(table.item(16, 0).text())
         dD['dim1 stop'] = np.float(table.item(17, 0).text())
-        dD['dim1 lin'] = np.linspace(dD['dim1 start'], dD['dim1 stop'], 201)
-        self.update_data_disp()
+        dD['dim1 name'] = str(table.item(18, 0).text())
+        dD['dim2 pt'] =  np.int(table.item(19, 0).text())
+        dD['dim2 start'] = np.float(table.item(20, 0).text())
+        dD['dim2 stop'] = np.float(table.item(21, 0).text())
+        dD['dim2 name'] = str(table.item(22, 0).text())
+        dD['dim3 pt'] = np.float(table.item(23, 0).text())
+        dD['dim3 start'] = np.float(table.item(24, 0).text())
+        dD['dim3 stop'] = np.float(table.item(25, 0).text())
+        dD['dim3 name'] = str(table.item(26, 0).text())
+        dD['Process Num'] = np.float(table.item(27, 0).text())
+        dD['dim1 lin'] = np.linspace(dD['dim1 start'], dD['dim1 stop'], dD['dim1 pt'])
+        dD['dim2 lin'] = np.linspace(dD['dim2 start'], dD['dim2 stop'], dD['dim2 pt'])
+        dD['dim3 lin'] = np.linspace(dD['dim3 start'], dD['dim3 stop'], dD['dim3 pt'])
+        table.resizeColumnsToContents()
+        table.resizeRowsToContents()
+
 
     def update_table(self):
         logging.debug('Update Table Widget')
@@ -200,9 +229,20 @@ class dApp(QMainWindow, Ui_MainWindow):
         table.setItem(15, 0, QTableWidgetItem(str(d['dim1 pt'])))
         table.setItem(16, 0, QTableWidgetItem(str(d['dim1 start'])))
         table.setItem(17, 0, QTableWidgetItem(str(d['dim1 stop'])))
+        table.setItem(18, 0, QTableWidgetItem(str(d['dim1 name'])))
+        table.setItem(19, 0, QTableWidgetItem(str(d['dim2 pt'])))
+        table.setItem(20, 0, QTableWidgetItem(str(d['dim2 start'])))
+        table.setItem(21, 0, QTableWidgetItem(str(d['dim2 stop'])))
+        table.setItem(22, 0, QTableWidgetItem(str(d['dim2 name'])))
+        table.setItem(23, 0, QTableWidgetItem(str(d['dim3 pt'])))
+        table.setItem(24, 0, QTableWidgetItem(str(d['dim3 start'])))
+        table.setItem(25, 0, QTableWidgetItem(str(d['dim3 stop'])))
+        table.setItem(26, 0, QTableWidgetItem(str(d['dim3 name'])))
+        table.setItem(27, 0, QTableWidgetItem(str(d['Process Num'])))
         table.resizeColumnsToContents()
         table.resizeRowsToContents()
         table.show()
+
 
     def update_data_disp(self):
         xr = (np.array([-self.dispData['lags'], self.dispData['lags']]) / self.dispData['B'])
@@ -267,6 +307,15 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.toolbar_6 = NavigationToolbar(self.canvas_6, self.phn2_page, coordinates=True)
         self.phn2.addWidget(self.toolbar_6)
 
+    def update_page_7(self, fig):
+        self.clear_page_7()
+        logging.debug('Update page 6: phn2')
+        self.canvas_7 = FigureCanvas(fig)
+        self.covmat_field.addWidget(self.canvas_7)
+        self.canvas_7.draw()
+        self.toolbar_7 = NavigationToolbar(self.canvas_7, self.tab_covmat, coordinates=True)
+        self.covmat_field.addWidget(self.toolbar_7)
+
     def clear_page_1(self):
         if self.canvas_1:
             logging.debug('Clear Histogram Figures')
@@ -301,23 +350,31 @@ class dApp(QMainWindow, Ui_MainWindow):
 
     def clear_page_6(self):
         if self.canvas_6:
-            logging.debug('Clear page 5: phn2')
+            logging.debug('Clear page 6: phn2')
             self.phn2.removeWidget(self.canvas_6)
             self.canvas_6.close()
             self.phn2.removeWidget(self.toolbar_6)
             self.toolbar_6.close()
 
+    def clear_page_7(self):
+        if self.canvas_7:
+            logging.debug('Clear page 7: 3d-covmat')
+            self.covmat_field.removeWidget(self.canvas_7)
+            self.canvas_7.close()
+            self.covmat_field.removeWidget(self.toolbar_7)
+            self.toolbar_7.close()
+
     def process_all(self):
         logging.debug('start processing')
         functions.process_all_points(self.dispData, self.dicData)
         res = self.dicData['res']
-
+        #
         fig1 = Figure(facecolor='white', edgecolor='white')
         pl1 = fig1.add_subplot(1, 1, 1)
         pl1.plot(res.ns[:, 0], label='f1')
         pl1.plot(res.ns[:, 1], label='f2')
         pl1.set_title('Photon numbers')
-
+        #
         fig2 = Figure(facecolor='white', edgecolor='white')
         pl3 = fig2.add_subplot(2, 1, 1)
         pl4 = fig2.add_subplot(2, 1, 2)
@@ -326,7 +383,6 @@ class dApp(QMainWindow, Ui_MainWindow):
         pl3.set_title('Squeezing Mag')
         pl4.plot(res.sqphs)
         pl4.set_title('Squeezing Phase')
-
         self.update_page_5(fig1)
         self.update_page_6(fig2)
         self.update_table()
@@ -407,6 +463,13 @@ class dApp(QMainWindow, Ui_MainWindow):
         fig3.tight_layout()
         self.update_page_3(fig3)
 
+    def process_hybrid(self):
+        res = self.dicData['res']
+        lags = self.dispData['lags']
+        functions.process_hyb2(self.dispData, self.dicData)
+        fig7, ax = plot3dHist2(res.cov_mat)
+        self.update_page_7(fig7)
+        ax.mouse_init()
 
 class empty_class():
 
