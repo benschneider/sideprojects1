@@ -133,13 +133,24 @@ def getCovMatrix(IQdata, lags=100, hp=False):
     CovMat[1, :] = (irfftn((fftQ1 * rfftQ2))[fslice].copy()[start:stop] / len(fftI1))
     CovMat[2, :] = (irfftn((fftI1 * rfftQ2))[fslice].copy()[start:stop] / len(fftI1))
     CovMat[3, :] = (irfftn((fftQ1 * rfftI2))[fslice].copy()[start:stop] / len(fftI1))
-    CovMat[4, :] = abs(1j * (CovMat[2, :] + CovMat[3, :]) + (CovMat[0, :] - CovMat[1, :]))
-    CovMat[5, :] = np.angle(1j * (CovMat[2, :] + CovMat[3, :]) + (CovMat[0, :] - CovMat[1, :]))
+    psi = get_psi(CovMat[0], CovMat[1], CovMat[2], CovMat[3], lags)
+    CovMat[4, :] = abs(psi)
+    CovMat[5, :] = np.angle(psi)
     CovMat[6, :] = (irfftn((fftI1 * rfftI1))[fslice].copy()[start:stop] / len(fftI1))
     CovMat[7, :] = (irfftn((fftQ1 * rfftQ1))[fslice].copy()[start:stop] / len(fftI1))
     CovMat[8, :] = (irfftn((fftI2 * rfftI2))[fslice].copy()[start:stop] / len(fftI1))
     CovMat[9, :] = (irfftn((fftQ2 * rfftQ2))[fslice].copy()[start:stop] / len(fftI1))
     return CovMat
+
+
+def get_psi(IIc, QQc, IQc, QIc, lags):
+    if np.sign(IQc[lags])*np.sign(QIc[lags])*1.0 < 0.0:
+        logging.debug('180+ Deg phase between I and Q, Abnormal-> Hybrid Coupler')
+        Psi = IQc - QIc + 1j*(IIc + QQc)
+    else:  # np.sign(IIc[lags])*np.sign(QQc[lags])*1.0 < 0.0:
+        logging.debug('0 to 180 Deg phase between I and Q, Normal')
+        Psi = IIc - QQc + 1j*(IQc + QIc)
+    return Psi
 
 
 def getCovMat_wrap(dispData, data):
@@ -160,8 +171,9 @@ def getCovMat_wrap(dispData, data):
         for i in range(num):
             CovMat += getCovMatrix(IQdata2[:, i], lags=lags, hp=hp)
         CovMat = CovMat / np.float(num)
-        CovMat[4, :] = np.abs(1j * (CovMat[2, :] + CovMat[3, :]) + (CovMat[0, :] - CovMat[1, :]))
-        CovMat[5, :] = np.angle(1j * (CovMat[2, :] + CovMat[3, :]) + (CovMat[0, :] - CovMat[1, :]))
+        psi = get_psi(CovMat[0], CovMat[1], CovMat[2], CovMat[3], lags)
+        CovMat[4, :] = np.abs(psi)
+        CovMat[5, :] = np.angle(psi)
     else:
         CovMat = getCovMatrix(IQdata, lags=lags, hp=hp)
     return CovMat
@@ -234,9 +246,7 @@ def get_data_avg(dispData, dicData):
     res.n = 0.5 + np.abs(res.n) / dd['Averages']  # force averaged value to be larger than 0.5
     res.c_avg_off = res.c_avg_off / dd['Averages']
     res.c_avg = res.c_avg / dd['Averages']
-    res.psi_avg[0, :] = (res.c_avg[0] * 1.0 - res.c_avg[1] * 1.0 +
-                         1j * (res.c_avg[2] * 1.0 + res.c_avg[3] * 1.0))
-    res.psi_avg[0, :] = res.psi_avg[0, :] - np.mean(res.psi_avg[0, 0:lags-10])  # remove offset
+    res.psi_avg[0, :] = get_psi(res.c_avg[0], res.c_avg[1], res.c_avg[2], res.c_avg[3], lags)
 
     res.sq, res.ineq, res.noise = get_sq_ineq(res.psi_avg[0],
                                               res.n[0],
