@@ -2,6 +2,7 @@ from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d import Axes3D
 # from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import numpy as np
+import logging
 
 def plot3dHist(data):
     # plt.ion()
@@ -67,6 +68,7 @@ def plot3dHist2(data):
     zpos = np.zeros(lx*ly)
     dx = 0.5 * np.ones_like(zpos)
     dy = dx.copy()
+    logging.debug(str(data))
     dz = data.flatten()
     # dz = data.flatten()
     colors = []

@@ -223,6 +223,26 @@
                 <string>Process num</string>
                </property>
               </row>
+              <row>
+               <property name="text">
+                <string>G11 start</string>
+               </property>
+              </row>
+              <row>
+               <property name="text">
+                <string>G22 start</string>
+               </property>
+              </row>
+              <row>
+               <property name="text">
+                <string>G11 end</string>
+               </property>
+              </row>
+              <row>
+               <property name="text">
+                <string>G22 end</string>
+               </property>
+              </row>
               <column>
                <property name="text">
                 <string> Value</string>
@@ -301,14 +321,35 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QPushButton" name="calc_hyb_button">
+                 <widget class="QCheckBox" name="checkBox_drift">
                   <property name="text">
-                   <string>Calculate hybrid data</string>
+                   <string>Apply drift correction</string>
                   </property>
                  </widget>
                 </item>
                 <item>
-                 <widget class="QPushButton" name="pushButton_2">
+                 <widget class="QPushButton" name="calc_hyb_digitizer_drift">
+                  <property name="text">
+                   <string>Map digitizer drift values</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="calc_hyb_button2">
+                  <property name="text">
+                   <string>Create full covariance matrix 8x8</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="calc_hyb_button">
+                  <property name="text">
+                   <string>Create reduced covariance matrix 4x4</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="calc_hyb_button_all">
                   <property name="text">
                    <string>Process all hybrid data</string>
                   </property>
@@ -347,8 +388,8 @@
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>100</width>
-               <height>30</height>
+               <width>98</width>
+               <height>28</height>
               </rect>
              </property>
              <attribute name="label">
@@ -415,8 +456,8 @@
               <rect>
                <x>0</x>
                <y>0</y>
-               <width>100</width>
-               <height>30</height>
+               <width>98</width>
+               <height>28</height>
               </rect>
              </property>
              <attribute name="label">

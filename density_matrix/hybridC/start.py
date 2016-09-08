@@ -9,16 +9,14 @@ from parsers import savemtx
 import logging
 import numpy as np
 import sys
-import functions
+import functions, functions_hybrid, functions_digitizer_drift
 import cPickle
 import subprocess
 import threading
 import PyGnuplot as gp
-from histogram_plot import plot3dHist2
+from histogram_plot import plot3dHist2, plot3dHist
 
 Ui_MainWindow, QMainWindow = loadUiType('density_matrix.ui')
-# logging.basicConfig(level=logging.DEBUG, format='[%(threadName)-10s] %(message)s',)
-# formatter = logging.Formatter("%(levelname)s: %(asctime)s - %(name)s - %(process)s - %(message)s")
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(asctime)s - [%(threadName)-10s] - %(process)s - %(message)s')
 
 
@@ -49,13 +47,16 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.dicData = {}
         self.dicData['res'] = empty_class()  # class to store results
         dD = self.dispData
-        dD['f1'] = 4.8e9
-        dD['f2'] = 4.1e9
-        dD['g1'] = 6.4757e9  # <- fixed R # 602.0e7  # dR
-        dD['g2'] = 7.5135e9  # <- fixed R # 685.35e7  # dR
-        dD['Cross_correlation_Gain_f1f1'] = 1.4240e7
-        dD['Cross_correlation_Gain_f2f2'] = 1.7251e7
-        dD['B'] = 5e5
+        dD['drift'] = False
+        dD['f1'] = 4.1e9
+        dD['f2'] = 4.8e9
+        dD['g1'] = 6.4757e9
+        dD['g2'] = 7.5135e9
+        dD['cgain11 start'] = 1.8166e7
+        dD['cgain22 start'] = 1.0478e7
+        dD['cgain11 stop'] = 1.7251e7
+        dD['cgain22 stop'] = 1.4240e7
+        dD['B'] = 1e5
         dD['select'] = 0
         dD['mapdim'] = [20, 20]
         dD['lags'] = 1000
@@ -65,9 +66,9 @@ class dApp(QMainWindow, Ui_MainWindow):
         dD['Segment Size'] = 0
         dD['Averages'] = 1
         dD['Low Pass'] = 0
-        dD['dim1 pt'] = 201
-        dD['dim1 start'] = 2.03
-        dD['dim1 stop'] = 0.03
+        dD['dim1 pt'] = 41
+        dD['dim1 start'] = 0.02  # 2.03
+        dD['dim1 stop'] = 0.001  # 0.03
         dD['dim1 name'] = 'RF power'
         dD['dim2 pt'] = 100
         dD['dim2 start'] = 0
@@ -92,7 +93,10 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.save_mtx.triggered.connect(self.saveMtx)
         self.makeHistogram.clicked.connect(self.make_Histogram)
         self.Process_all.clicked.connect(self.process_all)
+        self.calc_hyb_digitizer_drift.clicked.connect(self.process_digitizer_drift)
         self.calc_hyb_button.clicked.connect(self.process_hybrid)
+        self.calc_hyb_button2.clicked.connect(self.process_hybrid2)
+        self.calc_hyb_button_all.clicked.connect(self.process_hybrid_all)
         self.tableWidget.itemChanged.connect(self.read_table)
         self.actionLoadPrev.triggered.connect(self.load_settings)
         self.actionSavePrev.triggered.connect(self.save_settings)
@@ -103,6 +107,11 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.action21.triggered.connect(lambda: self.add_hdf5data('on21'))
         self.action12_OFF.triggered.connect(lambda: self.add_hdf5data('off12'))
         self.action21_OFF.triggered.connect(lambda: self.add_hdf5data('off21'))
+        self.checkBox_drift.toggled.connect(self.checkbox_drift)
+
+    def checkbox_drift(self):
+        self.dispData['drift'] = not self.dispData['drift']
+        self.update_data_disp()
 
     def save_settings(self):
         with open(self.dispData['Settings file'], "wb+") as myFile:
@@ -125,6 +134,7 @@ class dApp(QMainWindow, Ui_MainWindow):
             functions.load_dataset(self.dispData, self.dicData, 'off21')
             logging.debug('settings and files loaded')
         self.update_table()
+        self.update_data_disp()
 
     def add_hdf5data(self, frequency_configuration):
         dialog_txt = 'Pick a file for :' + str(frequency_configuration)
@@ -160,14 +170,12 @@ class dApp(QMainWindow, Ui_MainWindow):
             d.setDaemon(True)
             d.start()
 
-
     def _spyview(self):
         logging.debug('Spyview started')
         basen = self.dispData['mtx ']
         subprocess.call(['spyview', basen + 'cII.mtx', basen + 'cQQ.mtx',
                          basen + 'cIQ.mtx', basen + 'cQI.mtx'])
         logging.debug('Spyview closed')
-
 
     def read_table(self):
         table = self.tableWidget
@@ -200,12 +208,15 @@ class dApp(QMainWindow, Ui_MainWindow):
         dD['dim3 stop'] = np.float(table.item(25, 0).text())
         dD['dim3 name'] = str(table.item(26, 0).text())
         dD['Process Num'] = np.float(table.item(27, 0).text())
+        dD['cgain11 start'] = np.float(table.item(28, 0).text())
+        dD['cgain22 start'] = np.float(table.item(29, 0).text())
+        dD['cgain11 stop'] = np.float(table.item(30, 0).text())
+        dD['cgain22 stop'] = np.float(table.item(31, 0).text())
         dD['dim1 lin'] = np.linspace(dD['dim1 start'], dD['dim1 stop'], dD['dim1 pt'])
         dD['dim2 lin'] = np.linspace(dD['dim2 start'], dD['dim2 stop'], dD['dim2 pt'])
         dD['dim3 lin'] = np.linspace(dD['dim3 start'], dD['dim3 stop'], dD['dim3 pt'])
         table.resizeColumnsToContents()
         table.resizeRowsToContents()
-
 
     def update_table(self):
         logging.debug('Update Table Widget')
@@ -239,10 +250,13 @@ class dApp(QMainWindow, Ui_MainWindow):
         table.setItem(25, 0, QTableWidgetItem(str(d['dim3 stop'])))
         table.setItem(26, 0, QTableWidgetItem(str(d['dim3 name'])))
         table.setItem(27, 0, QTableWidgetItem(str(d['Process Num'])))
+        table.setItem(28, 0, QTableWidgetItem(str(d['cgain11 start'])))
+        table.setItem(29, 0, QTableWidgetItem(str(d['cgain22 start'])))
+        table.setItem(30, 0, QTableWidgetItem(str(d['cgain11 stop'])))
+        table.setItem(31, 0, QTableWidgetItem(str(d['cgain22 stop'])))
         table.resizeColumnsToContents()
         table.resizeRowsToContents()
         table.show()
-
 
     def update_data_disp(self):
         xr = (np.array([-self.dispData['lags'], self.dispData['lags']]) / self.dispData['B'])
@@ -309,7 +323,7 @@ class dApp(QMainWindow, Ui_MainWindow):
 
     def update_page_7(self, fig):
         self.clear_page_7()
-        logging.debug('Update page 6: phn2')
+        logging.debug('Clear page 7: 3d-covmat')
         self.canvas_7 = FigureCanvas(fig)
         self.covmat_field.addWidget(self.canvas_7)
         self.canvas_7.draw()
@@ -368,13 +382,11 @@ class dApp(QMainWindow, Ui_MainWindow):
         logging.debug('start processing')
         functions.process_all_points(self.dispData, self.dicData)
         res = self.dicData['res']
-        #
         fig1 = Figure(facecolor='white', edgecolor='white')
         pl1 = fig1.add_subplot(1, 1, 1)
         pl1.plot(res.ns[:, 0], label='f1')
         pl1.plot(res.ns[:, 1], label='f2')
         pl1.set_title('Photon numbers')
-        #
         fig2 = Figure(facecolor='white', edgecolor='white')
         pl3 = fig2.add_subplot(2, 1, 1)
         pl4 = fig2.add_subplot(2, 1, 2)
@@ -466,10 +478,30 @@ class dApp(QMainWindow, Ui_MainWindow):
     def process_hybrid(self):
         res = self.dicData['res']
         lags = self.dispData['lags']
-        functions.process_hyb2(self.dispData, self.dicData)
+        functions_hybrid.process_hyb(self.dispData, self.dicData)
+        fig7, ax = plot3dHist(res.cov_mat)
+        self.update_page_7(fig7)
+        ax.mouse_init()
+
+    def process_hybrid2(self):
+        res = self.dicData['res']
+        lags = self.dispData['lags']
+        functions_hybrid.process_hyb2(self.dispData, self.dicData)
         fig7, ax = plot3dHist2(res.cov_mat)
         self.update_page_7(fig7)
         ax.mouse_init()
+
+    def process_hybrid_all(self):
+        res = self.dicData['res']
+        lags = self.dispData['lags']
+        functions_hybrid.process_hyb2(self.dispData, self.dicData)
+        fig7, ax = plot3dHist2(res.cov_mat)
+        self.update_page_7(fig7)
+        ax.mouse_init()
+
+    def process_digitizer_drift(self):
+        functions_digitizer_drift.generate_drift_map(self.dispData, self.dicData)
+
 
 class empty_class():
 
@@ -481,11 +513,10 @@ def main():
     app = QApplication(sys.argv)
     form = dApp()
     form.show()
-    # app.exec_()
-    sys.exit(app.exec_())  # it there actually a difference?
+    app.exec_()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     form = dApp()
     form.show()
-    sys.exit(app.exec_())  # it there actually a difference?
+    sys.exit(app.exec_())
