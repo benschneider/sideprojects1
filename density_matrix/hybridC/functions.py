@@ -18,7 +18,7 @@ def load_dataset(dispData, dicData, ext='hdf5_on'):
 
 def f1pN2(tArray, lags0, d=1):
     squeezing_noise = np.sqrt(np.var(np.abs(tArray)))  # including the peak matters little
-    if np.max(np.abs(tArray[lags0 - d:lags0 + d + 1])) < 3.5 * squeezing_noise:
+    if np.max(np.abs(tArray[lags0 - d:lags0 + d + 1])) < 2.5 * squeezing_noise:
         logging.debug('SN ratio too low: Can not find trigger position')
         distance = 0
     else:
@@ -51,6 +51,8 @@ def process_all_points(dispData, dicData):
     res.ns = np.zeros([pt, 2])
     res.ineqs = np.zeros(pt)
     res.sqs = np.zeros(pt)
+    res.sqs2 = np.zeros(pt)
+    res.sqsn2 = np.zeros(pt)
     res.sqphs = np.zeros(pt)
     res.noises = np.zeros(pt)
     for n in range(pt):
@@ -60,6 +62,8 @@ def process_all_points(dispData, dicData):
         res.cs_avg_off[n] = res.c_avg_off
         res.ns[n] = res.n
         res.sqs[n] = res.sq
+        res.sqs2[n] = res.psi_mag_avg[0]
+        res.sqsn2[n] = res.psi_mag_avg[1]
         res.sqphs[n] = res.sqph
         res.ineqs[n] = res.ineq
         res.noises[n] = res.noise
@@ -296,9 +300,6 @@ def get_data_avg(dispData, dicData):
         makehist2d(dd, dicData)
         res.IQmapM_avg += res.IQmapM
         res.c_avg += on.CovMat
-        # res.c_avg_off += off.CovMat
-        # res.n[0] += (on.CovMat[6] + on.CovMat[7] - off.CovMat[6] - off.CovMat[7])[lags]
-        # res.n[1] += (on.CovMat[8] + on.CovMat[9] - off.CovMat[8] - off.CovMat[9])[lags]
         dd['select'] = dd['select'] + 201  # for now a hard coded number!
         covMat0 = np.cov([on.I1, on.Q1, on.I2, on.Q2])
         covMat1 = np.cov([off.I1, off.Q1, off.I2, off.Q2])
@@ -327,7 +328,7 @@ def get_data_avg(dispData, dicData):
                                               np.float(dd['f1']),
                                               np.float(dd['f2']),
                                               lags)
-    res.sq = res.psi_mag_avg[0]
+    # res.sq = res.psi_mag_avg[0]
     logging.debug(str(res.psi_mag_avg))
     logging.debug('n1full: ' + str(np.mean(on.I1**2+on.Q1**2-off.I1**2-off.Q1**2) ) )
     logging.debug('On Matrix:'+str(res.covMat))
