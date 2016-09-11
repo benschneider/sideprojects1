@@ -20,8 +20,7 @@ def plot3dHist(data):
     zpos = np.zeros(16)
     dx = 0.5 * np.ones_like(zpos)
     dy = dx.copy()
-    # dz = data.flatten()
-    dz = data
+    dz = data.flatten()
     colors = []
     for item in dz:
         if item < 0:
@@ -40,10 +39,7 @@ def plot3dHist(data):
     x = np.arange(0, 4.5, 0.5)
     y = np.arange(0, 4.5, 0.5)
     X, Y = np.meshgrid(x, y)
-    # ax.zaxis.set_major_locator(LinearLocator(6))
-    # ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
     ax.autoscale_view(tight=None, scalex=True, scaley=True, scalez=True)
-    # ax.plot_wireframe(X, Y, 0, rstride=1, cstride=1)
     ax.plot_surface(X, Y, 0, alpha=0.4, color='g')
     ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color=colors, zsort='average', alpha=0.9)
     ax.set_zlim3d(bottom=-max(abs(dz)), top=max(abs(dz)))
@@ -70,7 +66,6 @@ def plot3dHist2(data):
     dy = dx.copy()
     logging.debug(str(data))
     dz = data.flatten()
-    # dz = data.flatten()
     colors = []
     for item in dz:
         if item < 0:

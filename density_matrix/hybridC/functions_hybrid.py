@@ -5,7 +5,7 @@ from scipy.constants import h
 from scipy.signal.signaltools import _next_regular
 from scipy.ndimage.filters import gaussian_filter1d
 from numpy.fft import rfftn, irfftn
-
+import PyGnuplot as gp
 
 def prep_data_hyb(dispData, dicData):
     select = dispData['select']
@@ -59,21 +59,31 @@ def assignRaw_hyb(dispData, dicData):
 
 def process_hyb(disp_data, dic_data):
     res = dic_data['res']
+    lags = disp_data['lags']
     assignRaw_hyb(disp_data, dic_data)
     makeheader_hyb(disp_data, dic_data)  # creates histograms
     get_data_hyb(res, disp_data)
+    res.cov_mat = res.cov_matON[:, :, lags]
+    # res.cov_mat = res.cov_matON[:, :, lags].flatten()
+
+
+def process_hyb_all(disp_data, dic_data):
+    res = dic_data['res']
     lags = disp_data['lags']
-    # res.cov_mat = res.cov_matrix_ON[:, lags]
-    res.cov_mat = np.zeros([4, 4, lags*2+1])
-    res.cov_mat[0, 0:2] = res.cov_matrix_ON[0:2]    # On11 <II> <IQ>
-    res.cov_mat[1, 0:2] = res.cov_matrix_ON[2:4]    # On11 <QI> <QQ>
-    res.cov_mat[0, 2:4] = res.cov_matrix_ON[4:6]    # On12 <II> <IQ>
-    res.cov_mat[1, 2:4] = res.cov_matrix_ON[6:8]    # On12 <QI> <QQ>
-    res.cov_mat[2, 0:2] = res.cov_matrix_ON[8:10]   # On21 <II> <IQ>
-    res.cov_mat[3, 0:2] = res.cov_matrix_ON[10:12]  # On21 <QI> <QQ>
-    res.cov_mat[2, 2:4] = res.cov_matrix_ON[12:14]  # On22 <II> <IQ>
-    res.cov_mat[3, 2:4] = res.cov_matrix_ON[14:16]  # On22 <QI> <QQ>
-    res.cov_mat = res.cov_mat[:, :, lags].flatten()
+    n1 = np.zeros(int(disp_data['Process Num']))
+    n2 = np.zeros(int(disp_data['Process Num']))
+    for i in range(int(disp_data['Process Num'])):
+        disp_data['select'] = i
+        assignRaw_hyb(disp_data, dic_data)
+        # makeheader_hyb(disp_data, dic_data)  # creates histograms
+        # TODO Histograms plus headers
+        get_data_hyb(res, disp_data)
+        res.cov_mat = res.cov_matON[:, :, lags]
+        n1[i] = res.cov_mat[0, 0] + res.cov_mat[1, 1]
+        n2[i] = res.cov_mat[2, 2] + res.cov_mat[3, 3]
+    res.cov_mat = res.cov_matON[:, :, lags]
+    res.n1 = n1
+    res.n2 = n2
 
 
 def process_hyb2(disp_data, dic_data):
@@ -83,7 +93,7 @@ def process_hyb2(disp_data, dic_data):
     makeheader_hyb(disp_data, dic_data)  # creates histograms
     get_data_hyb2(res, disp_data)
     res.cov_mat = np.zeros([8, 8, (lags*2+1)])
-    res.cov_mat[0, 0:4] = res.cov_matrix_ON[0:4]        # On11 <I1I1> <IQ>
+    res.cov_mat[0, 0:4] = res.cov_matrix_ON[0:4]        # On11 <I1> <IQ>
     res.cov_mat[1, 0:4] = res.cov_matrix_ON[4:8]        # On11 <QI> <QQ>
     res.cov_mat[2, 0:4] = res.cov_matrix_ON[8:12]       # On11 <II> <IQ>
     res.cov_mat[3, 0:4] = res.cov_matrix_ON[12:16]      # On11 <QI> <QQ>
@@ -100,17 +110,6 @@ def process_hyb2(disp_data, dic_data):
     res.cov_mat[6, 4:8] = res.cov_matrix_ON[56:60]      # On22 <II> <IQ>
     res.cov_mat[7, 4:8] = res.cov_matrix_ON[60:64]      # On22 <QI> <QQ>
     res.cov_mat = res.cov_mat[:, :, lags]
-
-
-def process_hyb_all(disp_data, dic_data):
-    res = dic_data['res']
-    for i in range(disp_data['Process Num']):
-        disp_data['select'] = i
-        assignRaw_hyb(disp_data, dic_data)
-        # makeheader_hyb(disp_data, dic_data)  # creates histograms
-        # TODO Histograms plus headers
-        get_data_hyb(res, disp_data)
-        lags = disp_data['lags']
 
 
 def get_data_hyb(res, disp_data):
@@ -133,33 +132,29 @@ def get_data_hyb(res, disp_data):
         p[i].start()
     for i in range(4):
         p[i].join()  # wait for calculation to complete
-
     phasefix = disp_data['Phase correction']
     trigfix = disp_data['Trigger correction']
     covariance_matrix[:4] = get_corr_cov_mat(q[0].get(True, timeout), lags, triggerfix=trigfix, phasefix=phasefix, nbasis=True)
     covariance_matrix[4:8] = get_corr_cov_mat(q[1].get(True, timeout), lags, triggerfix=trigfix, phasefix=phasefix, nbasis=False)
     covariance_matrix[8:12] = get_corr_cov_mat(q[2].get(True, timeout), lags, triggerfix=trigfix, phasefix=phasefix, nbasis=False)
     covariance_matrix[12:16] = get_corr_cov_mat(q[3].get(True, timeout), lags, triggerfix=trigfix, phasefix=phasefix, nbasis=True)
-
     # Assemble full matrix
-    res.cov_mat = np.zeros([4, 4, lags*2+1])
-
     # make histogram symetric
-    if abs(covariance_matrix[4]) > abs(covariance_matrix[8]):
+    res.cov_matON = np.zeros([4, 4, lags*2+1])
+    if abs(covariance_matrix[4][lags]) > abs(covariance_matrix[8][lags]):
         a1 = covariance_matrix[4:6]
         b1 = covariance_matrix[6:8]
     else:
         a1 = covariance_matrix[8:10]
         b1 = covariance_matrix[10:12]
-    res.cov_mat[0, 0:2] = covariance_matrix[0:2]    # On11 <II> <IQ> Top left
-    res.cov_mat[1, 0:2] = covariance_matrix[2:4]    # On11 <QI> <QQ>
-    res.cov_mat[0, 2:4] = a1  # covariance_matrix[4:6]    # On12 <II> <IQ> Top right
-    res.cov_mat[1, 2:4] = b1  # covariance_matrix[6:8]    # On12 <QI> <QQ>
-    res.cov_mat[2, 0:2] = a1  # covariance_matrix[8:10]   # On21 <II> <IQ> Bottom left
-    res.cov_mat[3, 0:2] = b1  # covariance_matrix[10:12]  # On21 <QI> <QQ>
-    res.cov_mat[2, 2:4] = covariance_matrix[12:14]  # On22 <II> <IQ> Bottom right
-    res.cov_mat[3, 2:4] = covariance_matrix[14:16]  # On22 <QI> <QQ>
-    res.cov_mat = res.cov_mat[:, :, lags].flatten()
+    res.cov_matON[0, 0:2] = covariance_matrix[0:2]    # On11 <II> <IQ> Top left
+    res.cov_matON[1, 0:2] = covariance_matrix[2:4]    # On11 <QI> <QQ>
+    res.cov_matON[0, 2:4] = a1  # covariance_matrix[4:6]    # On12 <II> <IQ> Top right
+    res.cov_matON[1, 2:4] = b1  # covariance_matrix[6:8]    # On12 <QI> <QQ>
+    res.cov_matON[2, 0:2] = a1  # covariance_matrix[8:10]   # On21 <II> <IQ> Bottom left
+    res.cov_matON[3, 0:2] = b1  # covariance_matrix[10:12]  # On21 <QI> <QQ>
+    res.cov_matON[2, 2:4] = covariance_matrix[12:14]  # On22 <II> <IQ> Bottom right
+    res.cov_matON[3, 2:4] = covariance_matrix[14:16]  # On22 <QI> <QQ>
 
 def get_data_hyb2(res, disp_data):
     ''' Uses assigned data in res obj
@@ -172,7 +167,6 @@ def get_data_hyb2(res, disp_data):
     lags = disp_data['lags']
     res.n = np.zeros(2)
     covariance_matrix = np.zeros([16*4, lags*2+1])
-
     # Doing Sequencial processing: Passing big data via pipe tends to be unstable
     covariance_matrix[0:16] = get_covariance_submatrix_full(res.on_IQ[0], lags)
     covariance_matrix[16:32] = get_covariance_submatrix_full(res.on_IQ[1], lags)
@@ -222,10 +216,16 @@ def get_corr_cov_mat(IQdata, lags, triggerfix=True, phasefix=True, nbasis=False)
     if phasefix:
         if nbasis:
             # Overwrite phase for photon number projection
-            IIc = np.abs(psi)/2.0
-            QQc = np.abs(psi)/2.0
-            IQc = np.abs(psi)*0.0
-            QIc = np.abs(psi)*0.0
+            # IIc = np.abs(psi)/2.0
+            # QQc = np.abs(psi)/2.0
+            # IQc = np.abs(psi)*0.0
+            # QIc = np.abs(psi)*0.0
+            pow1 = np.abs(IIc) + np.abs(IQc) + np.abs(QIc) + np.abs(QQc)
+            l1 = np.ones_like(IIc)
+            IIc = l1 * pow1 / 2.0
+            QQc = l1 * pow1 / 2.0
+            IQc = l1 * 0.0
+            QIc = l1 * 0.0
         else:
             # Overwrite phase for squeezing projection
             IIc = np.abs(psi)/2.0
@@ -292,18 +292,17 @@ def get_covariance_submatrix(IQdata, lags, q):
     stop = len(I1) + lags
     sub_matrix = np.zeros([4, lags * 2 + 1])
     sI1 = np.array(I1.shape)
-    sQ2 = np.array(Q2.shape)
-    shape = sI1 + sQ2 - 1
-    fshape = [_next_regular(int(d)) for d in shape]  # padding to optimal size for FFTPACK
-    fslice = tuple([slice(0, int(sz)) for sz in shape])  # remove padding later
-    fftI1 = rfftn(I1, fshape)
-    fftQ1 = rfftn(Q1, fshape)
-    rfftI2 = rfftn(I2[::-1], fshape)
-    rfftQ2 = rfftn(Q2[::-1], fshape)
-    sub_matrix[0] = (irfftn((fftI1 * rfftI2))[fslice].copy()[start:stop] / len(fftI1))  # <II>
-    sub_matrix[1] = (irfftn((fftI1 * rfftQ2))[fslice].copy()[start:stop] / len(fftI1))  # <IQ>
-    sub_matrix[2] = (irfftn((fftQ1 * rfftI2))[fslice].copy()[start:stop] / len(fftI1))  # <QI>
-    sub_matrix[3] = (irfftn((fftQ1 * rfftQ2))[fslice].copy()[start:stop] / len(fftI1))  # <QQ>
+    shape0 = sI1 - 1
+    fshape = [_next_regular(int(d)) for d in shape0]  # padding to optimal size for FFTPACK
+    fslice = tuple([slice(0, int(sz)) for sz in shape0])  # remove padding later
+    fftI1 = rfftn(I1, fshape)/fshape
+    fftQ1 = rfftn(Q1, fshape)/fshape
+    rfftI2 = rfftn(I2[::-1], fshape)/fshape
+    rfftQ2 = rfftn(Q2[::-1], fshape)/fshape
+    sub_matrix[0] = irfftn((fftI1 * rfftI2))[fslice].copy()[start:stop]  # <II>
+    sub_matrix[1] = irfftn((fftI1 * rfftQ2))[fslice].copy()[start:stop]  # <IQ>
+    sub_matrix[2] = irfftn((fftQ1 * rfftI2))[fslice].copy()[start:stop]  # <QI>
+    sub_matrix[3] = irfftn((fftQ1 * rfftQ2))[fslice].copy()[start:stop]  # <QQ>
     q.put(sub_matrix)
 
 
@@ -318,9 +317,9 @@ def get_covariance_submatrix_full(IQdata, lags):
     sub_matrix = np.zeros([16, lags * 2 + 1])
     sI1 = np.array(I1.shape)
     sQ2 = np.array(Q2.shape)
-    shape = sI1 + sQ2 - 1
-    fshape = [_next_regular(int(d)) for d in shape]  # padding to optimal size for FFTPACK
-    fslice = tuple([slice(0, int(sz)) for sz in shape])  # remove padding later
+    shap0 = sI1 + sQ2 - 1
+    fshape = [_next_regular(int(d)) for d in shap0]  # padding to optimal size for FFTPACK
+    fslice = tuple([slice(0, int(sz)) for sz in shap0])  # remove padding later
     fftIQ = 4*[None]
     rfftIQ = 4*[None]
     for i in range(4):

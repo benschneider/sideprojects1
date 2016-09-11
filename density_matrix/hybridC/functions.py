@@ -5,7 +5,10 @@ from scipy.signal.signaltools import _next_regular
 from scipy.ndimage.filters import gaussian_filter1d
 from numpy.fft import rfftn, irfftn
 import logging
-
+from multiprocessing import Process, Queue, Pipe
+from time import time
+import PyGnuplot as gp
+import gc
 
 def load_dataset(dispData, dicData, ext='hdf5_on'):
     '''Reads from the dictionary which data set was selected'''
@@ -26,8 +29,6 @@ def f1pN2(tArray, lags0, d=1):
 def f1pN(tArray, lags0, d=1):
     return (np.argmax(tArray[lags0 - d:lags0 + d + 1]) - d) * -1
 
-### Process Single Amplifier Data
-
 
 def process(dispData, dicData):
     assignRaw(dispData, dicData)
@@ -42,7 +43,7 @@ def process_all_points(dispData, dicData):
     mapdim = dispData['mapdim']
     on, off, Fac1, Fac2 = prep_data(dispData, dicData)
     start_select = dispData['select']
-    pt = (dispData['dim1 pt'])
+    pt = int(dispData['Process Num'])
     res = dicData['res']
     res.IQmapMs_avg = np.zeros([pt, 4, mapdim[0], mapdim[1]])
     res.cs_avg = np.zeros([pt, 10, lags * 2 + 1])
@@ -101,12 +102,47 @@ def prep_data(dispData, dicData):
 def lowPass(data, lowpass_sigma=0.0):
     if bool(lowpass_sigma):
         data = gaussian_filter1d(data, lowpass_sigma)  # Gausfilter
-    return data
+    return data - np.mean(data)  # remove DC offset
+
+
+def mp_wrap(pin, function, *args2):
+    ''' retvalues are the returns  and function is the function that gives you these'''
+    retvalues = function(*args2)
+    pin.send(retvalues)
+    pin.close()
 
 
 def makehist2d(dispData, dicData):
+    gc.collect()
     on, off, fac1, fac2 = prep_data(dispData, dicData)
+    t0 = time()
     res = dicData['res']
+    # pout = 8*[None]
+    # pin = 8*[None]
+    # p = 8*[None]
+    # for i in range(8):
+    #     pout[i], pin[i] = Pipe()  # This crashes way to easy!!!
+    # p[0] = Process(target=mp_wrap, args=(pin[0], np.histogram2d, on.I1, on.I2, [on.xII, on.yII]))
+    # p[1] = Process(target=mp_wrap, args=(pin[1], np.histogram2d, on.Q1, on.Q2, [on.xQQ, on.yQQ]))
+    # p[2] = Process(target=mp_wrap, args=(pin[2], np.histogram2d, on.I1, on.Q2, [on.xIQ, on.yIQ]))
+    # p[3] = Process(target=mp_wrap, args=(pin[3], np.histogram2d, on.Q1, on.I2, [on.xQI, on.yQI]))
+    # p[4] = Process(target=mp_wrap, args=(pin[4], np.histogram2d, off.I1, off.I2, [on.xII, on.yII]))
+    # p[5] = Process(target=mp_wrap, args=(pin[5], np.histogram2d, off.Q1, off.Q2, [on.xQQ, on.yQQ]))
+    # p[6] = Process(target=mp_wrap, args=(pin[6], np.histogram2d, off.I1, off.Q2, [on.xIQ, on.yIQ]))
+    # p[7] = Process(target=mp_wrap, args=(pin[7], np.histogram2d, off.Q1, off.I2, [on.xQI, on.yQI]))
+    # for i in range(8):
+    #     p[i].start()
+    #     pin[i].close()
+    # for i in range(8):
+    #     p[i].join()
+    # on.IImap, on.xII, on.yII = pout[0].recv()
+    # on.QQmap, on.xQQ, on.yQQ = pout[1].recv()
+    # on.IQmap, on.xIQ, on.yIQ = pout[2].recv()
+    # on.QImap, on.xQI, on.yQI = pout[3].recv()
+    # off.IImap, off.xII, off.yII = pout[4].recv()
+    # off.QQmap, off.xQQ, off.yQQ = pout[5].recv()
+    # off.IQmap, off.xIQ, off.yIQ = pout[6].recv()
+    # off.QImap, off.xQI, off.yQI = pout[7].recv()
     on.IImap, on.xII, on.yII = np.histogram2d(on.I1, on.I2, [on.xII, on.yII])
     on.QQmap, on.xQQ, on.yQQ = np.histogram2d(on.Q1, on.Q2, [on.xQQ, on.yQQ])
     on.IQmap, on.xIQ, on.yIQ = np.histogram2d(on.I1, on.Q2, [on.xIQ, on.yIQ])
@@ -119,6 +155,8 @@ def makehist2d(dispData, dicData):
     res.IQmapM[1] = on.QQmap - off.QQmap
     res.IQmapM[2] = on.IQmap - off.IQmap
     res.IQmapM[3] = on.QImap - off.QImap
+    t1 = time()
+    logging.debug('End MP histogramm time used: ' + str(t1-t0))
 
 
 def makeheader(dispData, dicData):
@@ -151,41 +189,40 @@ def getCovMatrix(IQdata, lags=100, hp=False):
     start = len(I1) - lags - 1
     stop = len(I1) + lags
     sI1 = np.array(I1.shape)
-    sQ2 = np.array(Q2.shape)
-    shape = sI1 + sQ2 - 1
-    HPfilt = (int(sI1 / (lags * 8)))  # ignore features larger than (lags*8)
-    fshape = [_next_regular(int(d)) for d in shape]  # padding to optimal size for FFTPACK
-    fslice = tuple([slice(0, int(sz)) for sz in shape])
+    shape0 = sI1*2 - 1
+    fshape = [_next_regular(int(d)) for d in shape0]  # padding to optimal size for FFTPACK
+    fslice = tuple([slice(0, int(sz)) for sz in shape0])
     # Do FFTs and get Cov Matrix
     fftI1 = rfftn(I1, fshape)
     fftQ1 = rfftn(Q1, fshape)
     fftI2 = rfftn(I2, fshape)
     fftQ2 = rfftn(Q2, fshape)
-    rfftI1 = rfftn(I1[::-1], fshape)
+    rfftI1 = rfftn(I1[::-1], fshape)  # there should be a simple relationship to fftI1
     rfftQ1 = rfftn(Q1[::-1], fshape)
     rfftI2 = rfftn(I2[::-1], fshape)
     rfftQ2 = rfftn(Q2[::-1], fshape)
-    if hp:
-        # filter frequencies outside the lags range
-        fftI1 = np.concatenate((np.zeros(HPfilt), fftI1[HPfilt:]))
-        fftQ2 = np.concatenate((np.zeros(HPfilt), fftQ1[HPfilt:]))
-        fftI2 = np.concatenate((np.zeros(HPfilt), fftI1[HPfilt:]))
-        fftQ1 = np.concatenate((np.zeros(HPfilt), fftQ1[HPfilt:]))
-        rfftI1 = np.concatenate((np.zeros(HPfilt), rfftI2[HPfilt:]))
-        rfftQ1 = np.concatenate((np.zeros(HPfilt), rfftQ2[HPfilt:]))
-        rfftI2 = np.concatenate((np.zeros(HPfilt), rfftI2[HPfilt:]))
-        rfftQ2 = np.concatenate((np.zeros(HPfilt), rfftQ2[HPfilt:]))
-    CovMat[0, :] = (irfftn((fftI1 * rfftI2))[fslice].copy()[start:stop] / len(fftI1))
-    CovMat[1, :] = (irfftn((fftQ1 * rfftQ2))[fslice].copy()[start:stop] / len(fftI1))
-    CovMat[2, :] = (irfftn((fftI1 * rfftQ2))[fslice].copy()[start:stop] / len(fftI1))
-    CovMat[3, :] = (irfftn((fftQ1 * rfftI2))[fslice].copy()[start:stop] / len(fftI1))
+    # HPfilt = (int(sI1 / (lags * 8)))  # ignore features larger than (lags*8)
+    # if hp:
+    #     # filter frequencies outside the lags range
+    #     fftI1 = np.concatenate((np.zeros(HPfilt), fftI1[HPfilt:]))
+    #     fftQ2 = np.concatenate((np.zeros(HPfilt), fftQ1[HPfilt:]))
+    #     fftI2 = np.concatenate((np.zeros(HPfilt), fftI1[HPfilt:]))
+    #     fftQ1 = np.concatenate((np.zeros(HPfilt), fftQ1[HPfilt:]))
+    #     rfftI1 = np.concatenate((np.zeros(HPfilt), rfftI2[HPfilt:]))
+    #     rfftQ1 = np.concatenate((np.zeros(HPfilt), rfftQ2[HPfilt:]))
+    #     rfftI2 = np.concatenate((np.zeros(HPfilt), rfftI2[HPfilt:]))
+    #     rfftQ2 = np.concatenate((np.zeros(HPfilt), rfftQ2[HPfilt:]))
+    CovMat[0, :] = irfftn((fftI1 * rfftI2))[fslice].copy()[start:stop]/fshape
+    CovMat[1, :] = irfftn((fftQ1 * rfftQ2))[fslice].copy()[start:stop]/fshape
+    CovMat[2, :] = irfftn((fftI1 * rfftQ2))[fslice].copy()[start:stop]/fshape
+    CovMat[3, :] = irfftn((fftQ1 * rfftI2))[fslice].copy()[start:stop]/fshape
     psi = (1j * (CovMat[2, :] + CovMat[3, :]) + (CovMat[0, :] - CovMat[1, :]))
     CovMat[4, :] = abs(psi)
     CovMat[5, :] = np.angle(psi)
-    CovMat[6, :] = (irfftn((fftI1 * rfftI1))[fslice].copy()[start:stop] / len(fftI1))
-    CovMat[7, :] = (irfftn((fftQ1 * rfftQ1))[fslice].copy()[start:stop] / len(fftI1))
-    CovMat[8, :] = (irfftn((fftI2 * rfftI2))[fslice].copy()[start:stop] / len(fftI1))
-    CovMat[9, :] = (irfftn((fftQ2 * rfftQ2))[fslice].copy()[start:stop] / len(fftI1))
+    CovMat[6, :] = irfftn((fftI1 * rfftI1))[fslice].copy()[start:stop]/fshape
+    CovMat[7, :] = irfftn((fftQ1 * rfftQ1))[fslice].copy()[start:stop]/fshape
+    CovMat[8, :] = irfftn((fftI2 * rfftI2))[fslice].copy()[start:stop]/fshape
+    CovMat[9, :] = irfftn((fftQ2 * rfftQ2))[fslice].copy()[start:stop]/fshape
     return CovMat
 
 
@@ -220,20 +257,21 @@ def correctPhase(dispData, dicData):
     if dispData['Trigger correction']:
         CovMat = getCovMat_wrap(dispData, on)
         dMag = f1pN2(CovMat[4], dispData['lags'], d=1)
-        logging.debug('Trigger correct ' + str(dMag) + 'pt')
         on.I1 = np.roll(on.I1, dMag)  # Correct 1pt trigger jitter
         on.Q1 = np.roll(on.Q1, dMag)
+        logging.debug('Trigger corrected ' + str(dMag) + 'pt')
+
     if dispData['Phase correction']:
-        CovMat = getCovMat_wrap(dispData, on)
         phase_index = np.argmax(CovMat[4])
         phase_offset = CovMat[5][phase_index]
         phase = np.angle(1j * on.Q1 + on.I1)  # phase rotation
         new = np.abs(1j * on.Q1 + on.I1) * np.exp(1j * (phase - phase_offset))
         on.I1 = np.real(new)
         on.Q1 = np.imag(new)
-    on.CovMat = getCovMat_wrap(dispData, on)
-    off.CovMat = getCovMat_wrap(dispData, off)
+        logging.debug('Phase corrected ' + str(phase_offset) + 'rad')
 
+    on.CovMat = CovMat  # getCovMat_wrap(dispData, on)
+    # off.CovMat = getCovMat_wrap(dispData, off)
 
 
 def get_data_avg(dispData, dicData):
@@ -247,29 +285,45 @@ def get_data_avg(dispData, dicData):
     res.c_avg = np.zeros([10, lags * 2 + 1])  # Covariance Map inc PSI
     res.c_avg_off = np.zeros([10, lags * 2 + 1])  # Covariance Map
     res.psi_avg = 1j * np.zeros([1, lags * 2 + 1])  # PSI
+    covMat = np.zeros([4,4])
     for i in range(dd['Averages']):
         assignRaw(dd, dicData)
         logging.debug('Working on trace number ' + str(dd['Trace i, j, k']))
-        logging.debug('dim1 value :' + str(dd['dim1 lin'][int(dd['Trace i, j, k'][0])]))
+        logging.debug('dim1 value :' + str(dicData['dim1 lin'][int(dd['Trace i, j, k'][0])]))
         correctPhase(dd, dicData)  # assigns res.CovMat
         makehist2d(dd, dicData)
         res.IQmapM_avg += res.IQmapM
         res.c_avg += on.CovMat
-        res.c_avg_off += off.CovMat
-        res.n[0] += (on.CovMat[6] + on.CovMat[7] - off.CovMat[6] - off.CovMat[7])[lags]
-        res.n[1] += (on.CovMat[8] + on.CovMat[9] - off.CovMat[8] - off.CovMat[9])[lags]
+        # res.c_avg_off += off.CovMat
+        # res.n[0] += (on.CovMat[6] + on.CovMat[7] - off.CovMat[6] - off.CovMat[7])[lags]
+        # res.n[1] += (on.CovMat[8] + on.CovMat[9] - off.CovMat[8] - off.CovMat[9])[lags]
         dd['select'] = dd['select'] + 201  # for now a hard coded number!
-    res.n = 0.5 + np.abs(res.n) / dd['Averages']  # force averaged value to be larger than 0.5
-    res.c_avg_off = res.c_avg_off / dd['Averages']
+        covMat0 = np.cov([on.I1, on.Q1, on.I2, on.Q2])
+        covMat1 = np.cov([off.I1, off.Q1, off.I2, off.Q2])
+        covMat += covMat0
+        covMat[0, 0] -= covMat1[0, 0]
+        covMat[1, 1] -= covMat1[1, 1]
+        covMat[2, 2] -= covMat1[2, 2]
+        covMat[3, 3] -= covMat1[3, 3]
+
+    res.n[0] = (covMat[0, 0] + covMat[1, 1])
+    res.n[1] = (covMat[2, 2] + covMat[3, 3])
+    res.covMat = covMat/dd['Averages']
+    res.n = 0.5 + res.n / dd['Averages']  # force averaged value to be larger than 0.5
+    # res.c_avg_off = res.c_avg_off / dd['Averages']
     res.c_avg = res.c_avg / dd['Averages']
+    res.psi = (res.covMat[2, 0] - res.covMat[3, 1]) + 1j*(res.covMat[3, 0] + res.covMat[2, 1])
     res.psi_avg[0, :] = (res.c_avg[0] * 1.0 - res.c_avg[1] * 1.0 + 1j * (res.c_avg[2] * 1.0 + res.c_avg[3] * 1.0))
-    res.psi_avg[0, :] = res.psi_avg[0, :] - np.mean(res.psi_avg[0, 0:lags - 10])  # remove offset
-    res.sq, res.ineq, res.noise = get_sq_ineq(res.psi_avg[0],
+    # res.psi_avg[0, :] = (res.c_avg[0] * 1.0 - res.c_avg[1] * 1.0 + 1j * (res.c_avg[2] * 1.0 + res.c_avg[3] * 1.0))
+    # res.psi_avg[0, :] = res.psi_avg[0, :] - np.mean(res.psi_avg[0, 0:lags - 10])  # remove offset (shouldn't do)
+    res.sq, res.ineq, res.noise = get_sq_ineq(res.psi,  # res.psi_avg[0],
                                               res.n[0],
                                               res.n[1],
                                               np.float(dd['f1']),
                                               np.float(dd['f2']),
                                               lags)
+    logging.debug('n1full: ' + str(np.mean(on.I1**2+on.Q1**2-off.I1**2-off.Q1**2) ) )
+    logging.debug('On Matrix:'+str(res.covMat))
     res.sqph = np.angle(res.psi_avg[0][lags])
 
 
@@ -277,10 +331,10 @@ def get_sq_ineq(psi, n1, n2, f1, f2, lags):
     '''returns the ammount of squeezing, ineq and noise'''
     noise = np.sqrt(np.var(np.abs(psi)))
     logging.debug('Mag Psi sqrt(Variance): ' + str(noise))
-    squeezing = np.max(np.abs(psi)) / ((n1 + n2) / 2.0)  # w. zpf
+    squeezing = np.max(np.abs(psi)) # / ((n1 + n2) / 2.0)  # w. zpf
     logging.debug(('n1: ' + str(n1) + ' n2: ' + str(n2)))
     a = 2.0 * np.sqrt(f1 * f2) * np.abs(n1 + n2 - 1)
     b = f1 * (2.0 * n1 + 1.0 - 0.5) + f2 * (2.0 * n2 + 1.0 - 0.5)
     ineq = a / b   # does not include zpf
-    logging.debug(('ineq: ' + str(ineq) + ' sq: ' + str(squeezing)))
+    logging.debug(('ineq: ' + str(ineq) + ' sq raw: ' + str(squeezing)))
     return squeezing, ineq, noise

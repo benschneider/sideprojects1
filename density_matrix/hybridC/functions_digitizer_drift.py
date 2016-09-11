@@ -6,7 +6,6 @@ can be captured and compensated for.
 (This has a similar effect as using a pulsed measurement to ensure relative gain calibration)
 '''
 import numpy as np
-import PyGnuplot as gp
 
 def generate_drift_map(dispData, dicData):
     res = dicData['res']

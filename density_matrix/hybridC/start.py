@@ -10,7 +10,8 @@ import logging
 import numpy as np
 import sys
 import functions, functions_hybrid, functions_digitizer_drift
-import cPickle
+import cPickle  # json is saver and more reliable
+import json
 import subprocess
 import threading
 import PyGnuplot as gp
@@ -50,8 +51,8 @@ class dApp(QMainWindow, Ui_MainWindow):
         dD['drift'] = False
         dD['f1'] = 4.1e9
         dD['f2'] = 4.8e9
-        dD['g1'] = 6.4757e9
-        dD['g2'] = 7.5135e9
+        dD['g1'] = 1.3051e9
+        dD['g2'] = 1.4906e9
         dD['cgain11 start'] = 1.8166e7
         dD['cgain22 start'] = 1.0478e7
         dD['cgain11 stop'] = 1.7251e7
@@ -80,9 +81,9 @@ class dApp(QMainWindow, Ui_MainWindow):
         dD['dim3 name'] = 'Nothing'
         dD['Process Num'] = 1
         dD['Settings file'] = 'density_matrix.set'
-        dD['dim1 lin'] = np.linspace(dD['dim1 start'], dD['dim1 stop'], dD['dim1 pt'])
-        dD['dim2 lin'] = np.linspace(dD['dim2 start'], dD['dim2 stop'], dD['dim2 pt'])
-        dD['dim3 lin'] = np.linspace(dD['dim3 start'], dD['dim3 stop'], dD['dim3 pt'])
+        self.dicData['dim1 lin'] = np.linspace(dD['dim1 start'], dD['dim1 stop'], dD['dim1 pt'])
+        self.dicData['dim2 lin'] = np.linspace(dD['dim2 start'], dD['dim2 stop'], dD['dim2 pt'])
+        self.dicData['dim3 lin'] = np.linspace(dD['dim3 start'], dD['dim3 stop'], dD['dim3 pt'])
 
     def init_UI(self):
         ''' connect buttons to programs '''
@@ -114,27 +115,34 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.update_data_disp()
 
     def save_settings(self):
-        with open(self.dispData['Settings file'], "wb+") as myFile:
-            cPickle.dump(self.dispData, myFile)
-        logging.debug('settings and files saved')
+        savename = QFileDialog.getSaveFileName(self, "Save settingsfile as..")
+        if savename:
+            self.dispData['Settings file'] = savename
+            with open(savename, "w+") as myFile:
+                cPickle.dump(self.dispData, myFile)
+            logging.debug('settings and files saved')
 
     def load_settings(self):
-        with open(self.dispData['Settings file'], "rb") as myFile:
-            self.dispData = cPickle.load(myFile)
-        if 'hdf5_on' in self.dispData:
-            functions.load_dataset(self.dispData, self.dicData, 'hdf5_on')
-            functions.load_dataset(self.dispData, self.dicData, 'hdf5_off')
-            logging.debug('settings and files loaded')
-        elif 'on11' in self.dispData:
-            functions.load_dataset(self.dispData, self.dicData, 'on11')
-            functions.load_dataset(self.dispData, self.dicData, 'on22')
-            functions.load_dataset(self.dispData, self.dicData, 'on12')
-            functions.load_dataset(self.dispData, self.dicData, 'on21')
-            functions.load_dataset(self.dispData, self.dicData, 'off12')
-            functions.load_dataset(self.dispData, self.dicData, 'off21')
-            logging.debug('settings and files loaded')
-        self.update_table()
-        self.update_data_disp()
+        openname = QFileDialog.getOpenFileName(self, "Open settingsfile")
+        if openname:
+            with open(openname, "r") as myFile:
+                self.dispData = cPickle.load(myFile)
+
+            self.dispData['Settings file'] = openname
+            if 'hdf5_on' in self.dispData:
+                functions.load_dataset(self.dispData, self.dicData, 'hdf5_on')
+                functions.load_dataset(self.dispData, self.dicData, 'hdf5_off')
+                logging.debug('Single Amp settings and files loaded')
+            elif 'on11' in self.dispData:
+                functions.load_dataset(self.dispData, self.dicData, 'on11')
+                functions.load_dataset(self.dispData, self.dicData, 'on22')
+                functions.load_dataset(self.dispData, self.dicData, 'on12')
+                functions.load_dataset(self.dispData, self.dicData, 'on21')
+                functions.load_dataset(self.dispData, self.dicData, 'off12')
+                functions.load_dataset(self.dispData, self.dicData, 'off21')
+                logging.debug('Double Amp settings and files loaded')
+            self.update_table()
+            self.update_data_disp()
 
     def add_hdf5data(self, frequency_configuration):
         dialog_txt = 'Pick a file for :' + str(frequency_configuration)
@@ -180,11 +188,11 @@ class dApp(QMainWindow, Ui_MainWindow):
     def read_table(self):
         table = self.tableWidget
         dD = self.dispData
-        dD['f1'] = np.float(table.item(0, 0).text())
-        dD['f2'] = np.float(table.item(1, 0).text())
-        dD['g1'] = np.float(table.item(2, 0).text())
-        dD['g2'] = np.float(table.item(3, 0).text())
-        dD['B'] = np.float(table.item(4, 0).text())
+        dD['f1'] = float(table.item(0, 0).text())
+        dD['f2'] = float(table.item(1, 0).text())
+        dD['g1'] = float(table.item(2, 0).text())
+        dD['g2'] = float(table.item(3, 0).text())
+        dD['B'] = float(table.item(4, 0).text())
         dD['select'] = int(eval(str(table.item(5, 0).text())))
         dD['lags'] = int(eval(str(table.item(6, 0).text())))
         dD['mapdim'][0] = int(table.item(7, 0).text())
@@ -193,28 +201,29 @@ class dApp(QMainWindow, Ui_MainWindow):
         dD['Trigger correction'] = bool(eval(str(table.item(10, 0).text())))
         dD['FFT-Filter'] = bool(eval(str(table.item(11, 0).text())))
         dD['Segment Size'] = int(eval(str(table.item(12, 0).text())))
-        dD['Low Pass'] = np.float(table.item(13, 0).text())
-        dD['Averages'] = np.int(table.item(14, 0).text())
-        dD['dim1 pt'] = np.int(table.item(15, 0).text())
-        dD['dim1 start'] = np.float(table.item(16, 0).text())
-        dD['dim1 stop'] = np.float(table.item(17, 0).text())
+        dD['Low Pass'] = float(table.item(13, 0).text())
+        dD['Averages'] = int(table.item(14, 0).text())
+        dD['dim1 pt'] = int(table.item(15, 0).text())
+        dD['dim1 start'] = float(table.item(16, 0).text())
+        dD['dim1 stop'] = float(table.item(17, 0).text())
         dD['dim1 name'] = str(table.item(18, 0).text())
-        dD['dim2 pt'] =  np.int(table.item(19, 0).text())
-        dD['dim2 start'] = np.float(table.item(20, 0).text())
-        dD['dim2 stop'] = np.float(table.item(21, 0).text())
+        dD['dim2 pt'] =  int(table.item(19, 0).text())
+        dD['dim2 start'] = float(table.item(20, 0).text())
+        dD['dim2 stop'] = float(table.item(21, 0).text())
         dD['dim2 name'] = str(table.item(22, 0).text())
-        dD['dim3 pt'] = np.float(table.item(23, 0).text())
-        dD['dim3 start'] = np.float(table.item(24, 0).text())
-        dD['dim3 stop'] = np.float(table.item(25, 0).text())
+        dD['dim3 pt'] = int(table.item(23, 0).text())
+        dD['dim3 start'] = float(table.item(24, 0).text())
+        dD['dim3 stop'] = float(table.item(25, 0).text())
         dD['dim3 name'] = str(table.item(26, 0).text())
-        dD['Process Num'] = np.float(table.item(27, 0).text())
-        dD['cgain11 start'] = np.float(table.item(28, 0).text())
-        dD['cgain22 start'] = np.float(table.item(29, 0).text())
-        dD['cgain11 stop'] = np.float(table.item(30, 0).text())
-        dD['cgain22 stop'] = np.float(table.item(31, 0).text())
-        dD['dim1 lin'] = np.linspace(dD['dim1 start'], dD['dim1 stop'], dD['dim1 pt'])
-        dD['dim2 lin'] = np.linspace(dD['dim2 start'], dD['dim2 stop'], dD['dim2 pt'])
-        dD['dim3 lin'] = np.linspace(dD['dim3 start'], dD['dim3 stop'], dD['dim3 pt'])
+        dD['Process Num'] = int(table.item(27, 0).text())
+        dD['cgain11 start'] = float(table.item(28, 0).text())
+        dD['cgain22 start'] = float(table.item(29, 0).text())
+        dD['cgain11 stop'] = float(table.item(30, 0).text())
+        dD['cgain22 stop'] = float(table.item(31, 0).text())
+        aD = self.dicData
+        aD['dim1 lin'] = np.linspace(dD['dim1 start'], dD['dim1 stop'], dD['dim1 pt'])
+        aD['dim2 lin'] = np.linspace(dD['dim2 start'], dD['dim2 stop'], dD['dim2 pt'])
+        aD['dim3 lin'] = np.linspace(dD['dim3 start'], dD['dim3 stop'], dD['dim3 pt'])
         table.resizeColumnsToContents()
         table.resizeRowsToContents()
 
@@ -260,7 +269,7 @@ class dApp(QMainWindow, Ui_MainWindow):
 
     def update_data_disp(self):
         xr = (np.array([-self.dispData['lags'], self.dispData['lags']]) / self.dispData['B'])
-        self.dispData['minmax lags (s)'] = xr
+        self.dicData['minmax lags (s)'] = xr
         self.dicData['xaxis'] = np.linspace(xr[0], xr[1], self.dispData['lags'] * 2 + 1)
         self.selectDat.clear()
         for key in self.dispData:
@@ -412,8 +421,8 @@ class dApp(QMainWindow, Ui_MainWindow):
             savemtx(savename + 'QImaps.mtx', res.IQmapMs_avg[:, 3, :, :], on.headerQI)
             savemtx(savename + 'cs_avg_QI.mtx', res.cs_avg, on.headerQI)
             savemtx(savename + 'cs_avg_QI_off.mtx', res.cs_avg_off, on.headerQI)
-            filename = 'n1n2sqIneqRawSQNoise.dat'
-            gp.s([res.ns[:, 0], res.ns[:, 1], res.sqs, res.ineqs, res.noise], filename=filename)
+            filename = 'n1n2rawSqIneqNoise.dat'
+            gp.s([res.ns[:, 0], res.ns[:, 1], res.sqs, res.ineqs, res.noises], filename=filename)
             gp.c('plot "' + filename + '" u 3 w lp t "Squeezing"')
             gp.c('replot "' + filename + '" u 4 w lp t "Ineq"')
             self.update_data_disp()
@@ -460,7 +469,11 @@ class dApp(QMainWindow, Ui_MainWindow):
         xCorr2.plot(self.dicData['xaxis'], res.c_avg[1])
         xCorr3.plot(self.dicData['xaxis'], res.c_avg[2])
         xCorr4.plot(self.dicData['xaxis'], res.c_avg[3])
-        fig2.tight_layout()
+        xCorr1.axis('tight')
+        xCorr2.axis('tight')
+        xCorr3.axis('tight')
+        xCorr4.axis('tight')
+        # fig2.tight_layout()
         self.update_page_2(fig2)
 
     def make_TMSFig(self):
@@ -472,7 +485,10 @@ class dApp(QMainWindow, Ui_MainWindow):
         xTMS2.set_title('Phase')
         xTMS1.plot(self.dicData['xaxis'], np.abs(res.psi_avg[0]))
         xTMS2.plot(self.dicData['xaxis'], np.angle(res.psi_avg[0]))
-        fig3.tight_layout()
+        xTMS1.axis('tight')
+        xTMS2.axis('tight')
+        # xTMS1.tight_layout(fig3)
+        # xTMS2.tight_layout(fig3)
         self.update_page_3(fig3)
 
     def process_hybrid(self):
@@ -494,10 +510,18 @@ class dApp(QMainWindow, Ui_MainWindow):
     def process_hybrid_all(self):
         res = self.dicData['res']
         lags = self.dispData['lags']
-        functions_hybrid.process_hyb2(self.dispData, self.dicData)
-        fig7, ax = plot3dHist2(res.cov_mat)
-        self.update_page_7(fig7)
-        ax.mouse_init()
+        functions_hybrid.process_hyb_all(self.dispData, self.dicData)
+        # fig7, ax = plot3dHist2(res.cov_mat)
+        fig6 = Figure(facecolor='white', edgecolor='black')
+        xpl1 = fig6.add_subplot(1, 2, 1)
+        xpl2 = fig6.add_subplot(1, 2, 2)
+        xpl1.set_title('N1')
+        xpl1.set_title('N2')
+        xpl1.plot(res.n1)
+        xpl2.plot(res.n2)
+        self.update_page_5(fig6)
+        # self.update_page_7(fig7)
+        # ax.mouse_init()
 
     def process_digitizer_drift(self):
         functions_digitizer_drift.generate_drift_map(self.dispData, self.dicData)
