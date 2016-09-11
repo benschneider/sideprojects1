@@ -292,7 +292,7 @@ def get_covariance_submatrix(IQdata, lags, q):
     stop = len(I1) + lags
     sub_matrix = np.zeros([4, lags * 2 + 1])
     sI1 = np.array(I1.shape)
-    shape0 = sI1 - 1
+    shape0 = sI1*2 - 1
     fshape = [_next_regular(int(d)) for d in shape0]  # padding to optimal size for FFTPACK
     fslice = tuple([slice(0, int(sz)) for sz in shape0])  # remove padding later
     fftI1 = rfftn(I1, fshape)/fshape
@@ -316,8 +316,7 @@ def get_covariance_submatrix_full(IQdata, lags):
     stop = len(I1) + lags
     sub_matrix = np.zeros([16, lags * 2 + 1])
     sI1 = np.array(I1.shape)
-    sQ2 = np.array(Q2.shape)
-    shap0 = sI1 + sQ2 - 1
+    shap0 = sI1*2 - 1
     fshape = [_next_regular(int(d)) for d in shap0]  # padding to optimal size for FFTPACK
     fslice = tuple([slice(0, int(sz)) for sz in shap0])  # remove padding later
     fftIQ = 4*[None]
