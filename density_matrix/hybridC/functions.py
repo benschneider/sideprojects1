@@ -82,8 +82,8 @@ def assignRaw(dispData, dicData):
     off.Q1 = lowPass(d2.D12raw[select][1] / Fac1, lowpass_sigma=LP)
     off.I2 = lowPass(d2.D12raw[select][2] / Fac2, lowpass_sigma=LP)
     off.Q2 = lowPass(d2.D12raw[select][3] / Fac2, lowpass_sigma=LP)
-    dispData['I,Q data length'] = len(on.I1)
-    dispData['Trace i, j, k'] = d1.ijk[select]
+    dispData['I,Q data length'] = int(len(on.I1))
+    dispData['Trace i, j, k'] = list(d1.ijk[select])
 
 
 def prep_data(dispData, dicData):
