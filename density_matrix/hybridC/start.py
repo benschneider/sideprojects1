@@ -11,7 +11,7 @@ import numpy as np
 import sys
 import functions, functions_hybrid, functions_digitizer_drift
 import cPickle  # json is saver and more reliable
-import json
+import codecs, json
 import subprocess
 import threading
 import PyGnuplot as gp
@@ -98,7 +98,8 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.calc_hyb_button.clicked.connect(self.process_hybrid)
         self.calc_hyb_button2.clicked.connect(self.process_hybrid2)
         self.calc_hyb_button_all.clicked.connect(self.process_hybrid_all)
-        self.tableWidget.itemChanged.connect(self.read_table)
+        # self.tableWidget.itemChanged.connect(self.read_table)
+        self.Update_table.clicked.connect(self.read_table)
         self.actionLoadPrev.triggered.connect(self.load_settings)
         self.actionSavePrev.triggered.connect(self.save_settings)
         self.actionMtx_files.triggered.connect(self.open_mtx_spyview)
@@ -117,18 +118,22 @@ class dApp(QMainWindow, Ui_MainWindow):
     def save_settings(self):
         savename = QFileDialog.getSaveFileName(self, "Save settingsfile as..")
         if savename:
-            self.dispData['Settings file'] = savename
-            with open(savename, "w+") as myFile:
-                cPickle.dump(self.dispData, myFile)
+            self.dispData['Settings file'] = str(savename)
+            json.dump(self.dispData, codecs.open(savename, 'w+', encoding='utf-8'),
+                      separators=(',', ':'), sort_keys=True, indent=4)
+            # with open(savename, "w+") as myFile:
+            #     cPickle.dump(self.dispData, myFile)
             logging.debug('settings and files saved')
 
     def load_settings(self):
         openname = QFileDialog.getOpenFileName(self, "Open settingsfile")
         if openname:
-            with open(openname, "r") as myFile:
-                self.dispData = cPickle.load(myFile)
+            obj_text = codecs.open(openname, 'r', encoding='utf-8').read()
+            self.dispData = json.loads(obj_text)
+            # with open(openname, "r") as myFile:
+            #     self.dispData = cPickle.load(myFile)
 
-            self.dispData['Settings file'] = openname
+            self.dispData['Settings file'] = str(openname)
             if 'hdf5_on' in self.dispData:
                 functions.load_dataset(self.dispData, self.dicData, 'hdf5_on')
                 functions.load_dataset(self.dispData, self.dicData, 'hdf5_off')
@@ -149,14 +154,14 @@ class dApp(QMainWindow, Ui_MainWindow):
         openname = QFileDialog.getOpenFileName(self, dialog_txt)
         if openname:
             logging.debug(str(frequency_configuration) + ':' + str(openname))
-            self.dispData[str(frequency_configuration)] = openname
+            self.dispData[str(frequency_configuration)] = str(openname)
             functions.load_dataset(self.dispData, self.dicData, frequency_configuration)
             self.update_data_disp()
 
     def browse_saveMtx(self):
         savename = QFileDialog.getSaveFileName(self, "Select for 'base-name'+cII.mtx .. files")
         if savename:
-            self.dispData['mtx '] = savename
+            self.dispData['mtx '] = str(savename)
             logging.debug('Save .mtx:' + str(savename))
             self.saveMtx()
 
