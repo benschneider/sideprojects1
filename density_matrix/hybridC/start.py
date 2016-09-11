@@ -272,7 +272,6 @@ class dApp(QMainWindow, Ui_MainWindow):
         table.resizeColumnsToContents()
         table.resizeRowsToContents()
         table.show()
-        self.update_data_disp()
 
     def update_data_disp(self):
         xr = (np.array([-self.dispData['lags'], self.dispData['lags']]) / self.dispData['B'])
@@ -413,7 +412,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         pl4.set_title('Squeezing Phase')
         self.update_page_5(fig1)
         self.update_page_6(fig2)
-        self.update_table()
+        self.read_table()
         self.save_processed()
 
     def save_processed(self):
@@ -459,7 +458,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         ax3.set_title('IQc')
         ax4.set_title('QIc')
         self.update_page_1(fig1)  # send figure to the show_figure terminal
-        self.update_table()
+        self.read_table()
 
     def make_CorrFigs(self):
         fig2 = Figure(facecolor='white', edgecolor='black')
