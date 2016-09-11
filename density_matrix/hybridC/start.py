@@ -231,6 +231,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         aD['dim3 lin'] = np.linspace(dD['dim3 start'], dD['dim3 stop'], dD['dim3 pt'])
         table.resizeColumnsToContents()
         table.resizeRowsToContents()
+        self.update_data_disp()
 
     def update_table(self):
         logging.debug('Update Table Widget')
