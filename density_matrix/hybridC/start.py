@@ -271,7 +271,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         table.resizeColumnsToContents()
         table.resizeRowsToContents()
         table.show()
-        update_data_disp()
+        self.update_data_disp()
 
     def update_data_disp(self):
         xr = (np.array([-self.dispData['lags'], self.dispData['lags']]) / self.dispData['B'])
