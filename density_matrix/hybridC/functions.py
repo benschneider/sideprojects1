@@ -201,17 +201,18 @@ def getCovMatrix(IQdata, lags=100, hp=False):
     rfftQ1 = rfftn(Q1[::-1], fshape)
     rfftI2 = rfftn(I2[::-1], fshape)
     rfftQ2 = rfftn(Q2[::-1], fshape)
-    # HPfilt = (int(sI1 / (lags * 8)))  # ignore features larger than (lags*8)
     # if hp:
     #     # filter frequencies outside the lags range
-    #     fftI1 = np.concatenate((np.zeros(HPfilt), fftI1[HPfilt:]))
-    #     fftQ2 = np.concatenate((np.zeros(HPfilt), fftQ1[HPfilt:]))
-    #     fftI2 = np.concatenate((np.zeros(HPfilt), fftI1[HPfilt:]))
-    #     fftQ1 = np.concatenate((np.zeros(HPfilt), fftQ1[HPfilt:]))
-    #     rfftI1 = np.concatenate((np.zeros(HPfilt), rfftI2[HPfilt:]))
-    #     rfftQ1 = np.concatenate((np.zeros(HPfilt), rfftQ2[HPfilt:]))
-    #     rfftI2 = np.concatenate((np.zeros(HPfilt), rfftI2[HPfilt:]))
-    #     rfftQ2 = np.concatenate((np.zeros(HPfilt), rfftQ2[HPfilt:]))
+    # HPfilt = (int(sI1 / (lags * 8)))  # ignore features larger than (lags*8)
+    # fftI1 = np.concatenate((np.zeros(HPfilt), fftI1[HPfilt:]))
+    # fftQ2 = np.concatenate((np.zeros(HPfilt), fftQ1[HPfilt:]))
+    # fftI2 = np.concatenate((np.zeros(HPfilt), fftI1[HPfilt:]))
+    # fftQ1 = np.concatenate((np.zeros(HPfilt), fftQ1[HPfilt:]))
+    # rfftI1 = np.concatenate((np.zeros(HPfilt), rfftI2[HPfilt:]))
+    # rfftQ1 = np.concatenate((np.zeros(HPfilt), rfftQ2[HPfilt:]))
+    # rfftI2 = np.concatenate((np.zeros(HPfilt), rfftI2[HPfilt:]))
+    # rfftQ2 = np.concatenate((np.zeros(HPfilt), rfftQ2[HPfilt:]))
+    #
     CovMat[0, :] = irfftn((fftI1 * rfftI2))[fslice].copy()[start:stop]/fshape
     CovMat[1, :] = irfftn((fftQ1 * rfftQ2))[fslice].copy()[start:stop]/fshape
     CovMat[2, :] = irfftn((fftI1 * rfftQ2))[fslice].copy()[start:stop]/fshape
@@ -285,6 +286,7 @@ def get_data_avg(dispData, dicData):
     res.c_avg = np.zeros([10, lags * 2 + 1])  # Covariance Map inc PSI
     res.c_avg_off = np.zeros([10, lags * 2 + 1])  # Covariance Map
     res.psi_avg = 1j * np.zeros([1, lags * 2 + 1])  # PSI
+    res.psi_mag_avg = np.zeros(2)
     covMat = np.zeros([4,4])
     for i in range(dd['Averages']):
         assignRaw(dd, dicData)
@@ -305,7 +307,10 @@ def get_data_avg(dispData, dicData):
         covMat[1, 1] -= covMat1[1, 1]
         covMat[2, 2] -= covMat1[2, 2]
         covMat[3, 3] -= covMat1[3, 3]
+        res.psi_mag_avg[0] += np.abs((covMat0[2, 0] - covMat0[3, 1]) + 1j*(covMat0[3, 0] + covMat0[2, 1]))
+        res.psi_mag_avg[1] += np.abs((covMat1[2, 0] - covMat1[3, 1]) + 1j*(covMat1[3, 0] + covMat1[2, 1]))
 
+    res.psi_mag_avg /= dd['Averages']
     res.n[0] = (covMat[0, 0] + covMat[1, 1])
     res.n[1] = (covMat[2, 2] + covMat[3, 3])
     res.covMat = covMat/dd['Averages']
@@ -322,6 +327,8 @@ def get_data_avg(dispData, dicData):
                                               np.float(dd['f1']),
                                               np.float(dd['f2']),
                                               lags)
+    res.sq = res.psi_mag_avg[0]
+    logging.debug(str(res.psi_mag_avg))
     logging.debug('n1full: ' + str(np.mean(on.I1**2+on.Q1**2-off.I1**2-off.Q1**2) ) )
     logging.debug('On Matrix:'+str(res.covMat))
     res.sqph = np.angle(res.psi_avg[0][lags])

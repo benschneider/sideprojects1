@@ -394,6 +394,7 @@ class dApp(QMainWindow, Ui_MainWindow):
             self.toolbar_7.close()
 
     def process_all(self):
+        self.read_table()
         logging.debug('start processing')
         functions.process_all_points(self.dispData, self.dicData)
         res = self.dicData['res']
@@ -427,13 +428,14 @@ class dApp(QMainWindow, Ui_MainWindow):
             savemtx(savename + 'QImaps.mtx', res.IQmapMs_avg[:, 3, :, :], on.headerQI)
             savemtx(savename + 'cs_avg_QI.mtx', res.cs_avg, on.headerQI)
             savemtx(savename + 'cs_avg_QI_off.mtx', res.cs_avg_off, on.headerQI)
-            filename = 'n1n2rawSqIneqNoise.dat'
-            gp.s([res.ns[:, 0], res.ns[:, 1], res.sqs, res.ineqs, res.noises], filename=filename)
+            filename = 'n1n2rawSqInNoi1Noi2.dat'
+            gp.s([res.ns[:, 0], res.ns[:, 1], res.sqs, res.ineqs, res.noises, res.], filename=filename)
             gp.c('plot "' + filename + '" u 3 w lp t "Squeezing"')
             gp.c('replot "' + filename + '" u 4 w lp t "Ineq"')
             self.update_data_disp()
 
     def make_Histogram(self):
+        self.read_table()
         functions.process(self.dispData, self.dicData)
         self.make_CorrFigs()
         self.make_TMSFig()
@@ -498,6 +500,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.update_page_3(fig3)
 
     def process_hybrid(self):
+        self.read_table()
         res = self.dicData['res']
         lags = self.dispData['lags']
         functions_hybrid.process_hyb(self.dispData, self.dicData)
@@ -506,6 +509,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         ax.mouse_init()
 
     def process_hybrid2(self):
+        self.read_table()
         res = self.dicData['res']
         lags = self.dispData['lags']
         functions_hybrid.process_hyb2(self.dispData, self.dicData)
@@ -514,6 +518,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         ax.mouse_init()
 
     def process_hybrid_all(self):
+        self.read_table()
         res = self.dicData['res']
         lags = self.dispData['lags']
         functions_hybrid.process_hyb_all(self.dispData, self.dicData)
@@ -530,6 +535,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         # ax.mouse_init()
 
     def process_digitizer_drift(self):
+        self.read_table()
         functions_digitizer_drift.generate_drift_map(self.dispData, self.dicData)
 
 
