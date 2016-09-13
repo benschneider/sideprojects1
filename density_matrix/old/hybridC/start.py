@@ -10,7 +10,6 @@ import logging
 import numpy as np
 import sys
 import functions, functions_hybrid, functions_digitizer_drift
-import cPickle  # json is saver and more reliable
 import codecs, json
 import subprocess
 import threading
@@ -49,15 +48,15 @@ class dApp(QMainWindow, Ui_MainWindow):
         self.dicData['res'] = empty_class()  # class to store results
         dD = self.dispData
         dD['drift'] = False
-        dD['f1'] = 4.1e9
-        dD['f2'] = 4.8e9
-        dD['g1'] = 1.3051e9
-        dD['g2'] = 1.4906e9
+        dD['f1'] = 4.8e9
+        dD['f2'] = 4.1e9
+        dD['g1'] = 1.299e9  # 1.3051e9
+        dD['g2'] = 1.49e9  # 1486120350.0  # 1.4906e9
         dD['cgain11 start'] = 1.8166e7
         dD['cgain22 start'] = 1.0478e7
         dD['cgain11 stop'] = 1.7251e7
         dD['cgain22 stop'] = 1.4240e7
-        dD['B'] = 1e5
+        dD['B'] = 5e5
         dD['select'] = 0
         dD['mapdim'] = [20, 20]
         dD['lags'] = 1000
@@ -67,15 +66,15 @@ class dApp(QMainWindow, Ui_MainWindow):
         dD['Segment Size'] = 0
         dD['Averages'] = 1
         dD['Low Pass'] = 0
-        dD['dim1 pt'] = 41
-        dD['dim1 start'] = 0.02  # 2.03
-        dD['dim1 stop'] = 0.001  # 0.03
+        dD['dim1 pt'] = 201
+        dD['dim1 start'] = 2.03
+        dD['dim1 stop'] = 0.03
         dD['dim1 name'] = 'RF power'
-        dD['dim2 pt'] = 100
+        dD['dim2 pt'] = 11
         dD['dim2 start'] = 0
         dD['dim2 stop'] = 1
         dD['dim2 name'] = 'Magnet'
-        dD['dim3 pt'] = 100
+        dD['dim3 pt'] = 1
         dD['dim3 start'] = 0
         dD['dim3 stop'] = 1
         dD['dim3 name'] = 'Nothing'

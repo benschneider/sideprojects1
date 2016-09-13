@@ -15,7 +15,6 @@ def load_dataset(dispData, dicData, ext='hdf5_on'):
     dicData[ext] = storehdf5(str(dispData[ext]))
     dicData[ext].open_f(mode='r')
 
-
 def f1pN2(tArray, lags0, d=1):
     squeezing_noise = np.sqrt(np.var(np.abs(tArray)))  # including the peak matters little
     if np.max(np.abs(tArray[lags0 - d:lags0 + d + 1])) < 2.5 * squeezing_noise:
@@ -301,8 +300,8 @@ def get_data_avg(dispData, dicData):
         res.IQmapM_avg += res.IQmapM
         res.c_avg += on.CovMat
         dd['select'] = dd['select'] + 201  # for now a hard coded number!
-        covMat0 = np.cov([on.I1, on.Q1, on.I2, on.Q2])
-        covMat1 = np.cov([off.I1, off.Q1, off.I2, off.Q2])
+        covMat0 = np.cov([on.I1, on.Q1, on.I2, on.Q2])  # for now using numpies cov function to compare with FFT
+        covMat1 = np.cov([off.I1, off.Q1, off.I2, off.Q2])  # Turns out to be the same as using the FFT but seems slightly faster
         covMat += covMat0
         covMat[0, 0] -= covMat1[0, 0]
         covMat[1, 1] -= covMat1[1, 1]
@@ -316,12 +315,9 @@ def get_data_avg(dispData, dicData):
     res.n[1] = (covMat[2, 2] + covMat[3, 3])
     res.covMat = covMat/dd['Averages']
     res.n = 0.5 + res.n / dd['Averages']  # force averaged value to be larger than 0.5
-    # res.c_avg_off = res.c_avg_off / dd['Averages']
     res.c_avg = res.c_avg / dd['Averages']
     res.psi = (res.covMat[2, 0] - res.covMat[3, 1]) + 1j*(res.covMat[3, 0] + res.covMat[2, 1])
     res.psi_avg[0, :] = (res.c_avg[0] * 1.0 - res.c_avg[1] * 1.0 + 1j * (res.c_avg[2] * 1.0 + res.c_avg[3] * 1.0))
-    # res.psi_avg[0, :] = (res.c_avg[0] * 1.0 - res.c_avg[1] * 1.0 + 1j * (res.c_avg[2] * 1.0 + res.c_avg[3] * 1.0))
-    # res.psi_avg[0, :] = res.psi_avg[0, :] - np.mean(res.psi_avg[0, 0:lags - 10])  # remove offset (shouldn't do)
     res.sq, res.ineq, res.noise = get_sq_ineq(res.psi,  # res.psi_avg[0],
                                               res.n[0],
                                               res.n[1],
@@ -329,7 +325,7 @@ def get_data_avg(dispData, dicData):
                                               np.float(dd['f2']),
                                               lags)
     # res.sq = res.psi_mag_avg[0]
-    logging.debug(str(res.psi_mag_avg))
+    # logging.debug(str(res.psi_mag_avg))
     logging.debug('n1full: ' + str(np.mean(on.I1**2+on.Q1**2-off.I1**2-off.Q1**2) ) )
     logging.debug('On Matrix:'+str(res.covMat))
     res.sqph = np.angle(res.psi_avg[0][lags])
@@ -339,7 +335,7 @@ def get_sq_ineq(psi, n1, n2, f1, f2, lags):
     '''returns the ammount of squeezing, ineq and noise'''
     noise = np.sqrt(np.var(np.abs(psi)))
     logging.debug('Mag Psi sqrt(Variance): ' + str(noise))
-    squeezing = np.max(np.abs(psi)) # / ((n1 + n2) / 2.0)  # w. zpf
+    squeezing = np.max(np.abs(psi)) / ((n1 + n2) / 2.0)
     logging.debug(('n1: ' + str(n1) + ' n2: ' + str(n2)))
     a = 2.0 * np.sqrt(f1 * f2) * np.abs(n1 + n2 - 1)
     b = f1 * (2.0 * n1 + 1.0 - 0.5) + f2 * (2.0 * n2 + 1.0 - 0.5)
