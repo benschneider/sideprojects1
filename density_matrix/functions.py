@@ -17,7 +17,7 @@ def load_dataset(dispData, dicData, ext='hdf5_on'):
 
 def f1pN2(tArray, lags0, d=1):
     squeezing_noise = np.sqrt(np.var(np.abs(tArray)))  # including the peak matters little
-    if np.max(np.abs(tArray[lags0 - d:lags0 + d + 1])) < 2.5 * squeezing_noise:
+    if np.max(np.abs(tArray[lags0 - d:lags0 + d + 1])) < 3.0 * squeezing_noise:
         logging.debug('SN ratio too low: Can not find trigger position')
         distance = 0
     else:
