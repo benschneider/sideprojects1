@@ -48,6 +48,7 @@ def process_all_points(dispData, dicData):
     res.cs_avg = np.zeros([pt, 10, lags * 2 + 1])
     res.cs_avg_off = np.zeros([pt, 10, lags * 2 + 1])
     res.ns = np.zeros([pt, 2])
+    res.ns_off = np.zeros([pt, 2])
     res.ineqs = np.zeros(pt)
     res.sqs = np.zeros(pt)
     res.sqs2 = np.zeros(pt)
@@ -60,6 +61,8 @@ def process_all_points(dispData, dicData):
         res.cs_avg[n] = res.c_avg
         res.cs_avg_off[n] = res.c_avg_off
         res.ns[n] = res.n
+        res.ns_off[n][0] = res.covMatOff[0,0] + res.covMatOff[1,1]
+        res.ns_off[n][1] = res.covMatOff[2,2] + res.covMatOff[3,3]
         res.sqs[n] = res.sq
         res.sqs2[n] = res.psi_mag_avg[0]
         res.sqsn2[n] = res.psi_mag_avg[1]
@@ -290,7 +293,8 @@ def get_data_avg(dispData, dicData):
     res.c_avg_off = np.zeros([10, lags * 2 + 1])  # Covariance Map
     res.psi_avg = 1j * np.zeros([1, lags * 2 + 1])  # PSI
     res.psi_mag_avg = np.zeros(2)
-    covMat = np.zeros([4,4])
+    covMat = np.zeros([4, 4])
+    covMatOff = np.zeros([4, 4])
     for i in range(dd['Averages']):
         assignRaw(dd, dicData)
         logging.debug('Working on trace number ' + str(dd['Trace i, j, k']))
@@ -303,6 +307,7 @@ def get_data_avg(dispData, dicData):
         covMat0 = np.cov([on.I1, on.Q1, on.I2, on.Q2])  # for now using numpies cov function to compare with FFT
         covMat1 = np.cov([off.I1, off.Q1, off.I2, off.Q2])  # Turns out to be the same as using the FFT but seems slightly faster
         covMat += covMat0
+        covMatOff += covMat1
         covMat[0, 0] -= covMat1[0, 0]
         covMat[1, 1] -= covMat1[1, 1]
         covMat[2, 2] -= covMat1[2, 2]
@@ -314,6 +319,7 @@ def get_data_avg(dispData, dicData):
     res.n[0] = (covMat[0, 0] + covMat[1, 1])
     res.n[1] = (covMat[2, 2] + covMat[3, 3])
     res.covMat = covMat/dd['Averages']
+    res.covMatOff = covMatOff/dd['Averages']
     res.n = 0.5 + res.n / dd['Averages']  # force averaged value to be larger than 0.5
     res.c_avg = res.c_avg / dd['Averages']
     res.psi = (res.covMat[2, 0] - res.covMat[3, 1]) + 1j*(res.covMat[3, 0] + res.covMat[2, 1])

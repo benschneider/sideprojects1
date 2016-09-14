@@ -427,10 +427,10 @@ class dApp(QMainWindow, Ui_MainWindow):
             savemtx(savename + 'QImaps.mtx', res.IQmapMs_avg[:, 3, :, :], on.headerQI)
             savemtx(savename + 'cs_avg_QI.mtx', res.cs_avg, on.headerQI)
             savemtx(savename + 'cs_avg_QI_off.mtx', res.cs_avg_off, on.headerQI)
-            filename = 'n1n2rawSq1InNoi1Sq2Sq2N.dat'
-            gp.s([res.ns[:, 0], res.ns[:, 1], res.sqs, res.ineqs, res.noises, res.sqs2, res.sqsn2], filename=filename)
-            gp.c('plot "' + filename + '" u 3 w lp t "Squeezing"')
-            gp.c('replot "' + filename + '" u 4 w lp t "Ineq"')
+            filename = savename + 'n1n2rawSq1InNoi1Sq2Sq2Nn1offn2off.dat'
+            gp.s([res.ns[:, 0], res.ns[:, 1], res.sqs, res.ineqs, res.noises, res.sqs2, res.sqsn2, res.ns_off[:, 0], res.ns_off[:, 1]], filename=filename)
+            # gp.c('plot "' + filename + '" u 3 w lp t "Squeezing"')
+            # gp.c('replot "' + filename + '" u 4 w lp t "Ineq"')
             self.update_data_disp()
 
     def make_Histogram(self):
