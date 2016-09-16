@@ -430,7 +430,7 @@ class dApp(QMainWindow, Ui_MainWindow):
             filename = savename + 'n1n2rawSq1InNoi1Sq2dn1offn2offphs.mtx'
             dataset = np.array([res.ns[:, 0], res.ns[:, 1], res.sqs, res.ineqs, res.noises, res.sqs2-res.sqsn2, res.ns_off[:, 0], res.ns_off[:, 1], res.sqphs])
             mtxdataset = np.expand_dims(dataset, 0)
-            savemtx(filename=filename, mtxdataset)
+            savemtx(filename, mtxdataset)
             # gp.s([res.ns[:, 0], res.ns[:, 1], res.sqs, res.ineqs, res.noises, res.sqs2-res.sqsn2, res.ns_off[:, 0], res.ns_off[:, 1]], filename=filename)
             # gp.c('plot "' + filename + '" u 3 w lp t "Squeezing"')
             # gp.c('replot "' + filename + '" u 4 w lp t "Ineq"')
