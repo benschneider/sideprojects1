@@ -277,7 +277,7 @@ def correctPhase(dispData, dicData):
         on.Q1 = np.imag(new)
         logging.debug('Phase corrected ' + str(phase_offset) + 'rad')
 
-    on.CovMat = CovMat  # getCovMat_wrap(dispData, on)
+    on.CovMat = getCovMat_wrap(dispData, on)  # slower but allows for further phase corrections
     # off.CovMat = getCovMat_wrap(dispData, off)
 
 
@@ -306,14 +306,14 @@ def get_data_avg(dispData, dicData):
         dd['select'] = dd['select'] + 201  # for now a hard coded number!
         covMat0 = np.cov([on.I1, on.Q1, on.I2, on.Q2])  # for now using numpies cov function to compare with FFT
         covMat1 = np.cov([off.I1, off.Q1, off.I2, off.Q2])  # Turns out to be the same as using the FFT but seems slightly faster
-        covMat += covMat0
-        covMatOff += covMat1
+        covMat += covMat0  # w. drive ON
+        covMatOff += covMat1  # w. drive OFF
         covMat[0, 0] -= covMat1[0, 0]
         covMat[1, 1] -= covMat1[1, 1]
         covMat[2, 2] -= covMat1[2, 2]
         covMat[3, 3] -= covMat1[3, 3]
-        res.psi_mag_avg[0] += np.abs((covMat0[2, 0] - covMat0[3, 1]) + 1j*(covMat0[3, 0] + covMat0[2, 1]))
-        res.psi_mag_avg[1] += np.abs((covMat1[2, 0] - covMat1[3, 1]) + 1j*(covMat1[3, 0] + covMat1[2, 1]))
+        res.psi_mag_avg[0] += np.abs((covMat0[2, 0] - covMat0[3, 1]) + 1j*(covMat0[3, 0] + covMat0[2, 1]))  # magnitude w. drive ON
+        res.psi_mag_avg[1] += np.abs((covMat1[2, 0] - covMat1[3, 1]) + 1j*(covMat1[3, 0] + covMat1[2, 1]))  # magnitude w. drive OFF
 
     res.psi_mag_avg /= dd['Averages']
     res.n[0] = (covMat[0, 0] + covMat[1, 1])
@@ -334,7 +334,7 @@ def get_data_avg(dispData, dicData):
     # logging.debug(str(res.psi_mag_avg))
     logging.debug('n1full: ' + str(np.mean(on.I1**2+on.Q1**2-off.I1**2-off.Q1**2) ) )
     logging.debug('On Matrix:'+str(res.covMat))
-    res.sqph = np.angle(res.psi_avg[0][lags])
+    res.sqph = np.angle(res.psi_avg[0][lags]) # residual Phase offset
 
 
 def get_sq_ineq(psi, n1, n2, f1, f2, lags):
