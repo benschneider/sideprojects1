@@ -153,7 +153,7 @@ def makeheader(dispData, dicData):
     res.IQmapM[0], on.xII, on.yII = np.histogram2d(on.I1, on.I2, [on.xIQ, on.yIQ])
     res.IQmapM[1], on.xQQ, on.yQQ = np.histogram2d(on.Q1, on.Q2, [on.xIQ, on.yIQ])
     res.IQmapM[3], on.xQI, on.yQI = np.histogram2d(on.Q1, on.I2, [on.xIQ, on.yIQ])
-    endstr = ',' + dispData['dim1 name'] + ',' + dispData['dim1 start'] + ',' + dispData['dim1 stop']
+    endstr = ',' + str(dispData['dim1 name']) + ',' + str(dispData['dim1 start']) + ',' + str(dispData['dim1 stop'])
     on.headerII = ('Units,bin,I1,' + str(on.xII[0]) + ',' + str(on.xII[-2]) +
                    ',I2,' + str(on.yII[0]) + ',' + str(on.yII[-2]) + endstr)
     on.headerQQ = ('Units,bin,Q1,' + str(on.xQQ[0]) + ',' + str(on.xQQ[-2]) +
