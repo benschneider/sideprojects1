@@ -120,35 +120,11 @@ def mp_wrap(pin, function, *args2):
 
 def makehist2d(dispData, dicData):
     gc.collect()
-    on, off, fac1, fac2 = prep_data(dispData, dicData)
+    on = dicData['hdf5_on']
+    off = dicData['hdf5_off']
+    # on, off, fac1, fac2 = prep_data(dispData, dicData)
     t0 = time()
     res = dicData['res']
-    # pout = 8*[None]
-    # pin = 8*[None]
-    # p = 8*[None]
-    # for i in range(8):
-    #     pout[i], pin[i] = Pipe()  # This crashes way to easy!!!
-    # p[0] = Process(target=mp_wrap, args=(pin[0], np.histogram2d, on.I1, on.I2, [on.xII, on.yII]))
-    # p[1] = Process(target=mp_wrap, args=(pin[1], np.histogram2d, on.Q1, on.Q2, [on.xQQ, on.yQQ]))
-    # p[2] = Process(target=mp_wrap, args=(pin[2], np.histogram2d, on.I1, on.Q2, [on.xIQ, on.yIQ]))
-    # p[3] = Process(target=mp_wrap, args=(pin[3], np.histogram2d, on.Q1, on.I2, [on.xQI, on.yQI]))
-    # p[4] = Process(target=mp_wrap, args=(pin[4], np.histogram2d, off.I1, off.I2, [on.xII, on.yII]))
-    # p[5] = Process(target=mp_wrap, args=(pin[5], np.histogram2d, off.Q1, off.Q2, [on.xQQ, on.yQQ]))
-    # p[6] = Process(target=mp_wrap, args=(pin[6], np.histogram2d, off.I1, off.Q2, [on.xIQ, on.yIQ]))
-    # p[7] = Process(target=mp_wrap, args=(pin[7], np.histogram2d, off.Q1, off.I2, [on.xQI, on.yQI]))
-    # for i in range(8):
-    #     p[i].start()
-    #     pin[i].close()
-    # for i in range(8):
-    #     p[i].join()
-    # on.IImap, on.xII, on.yII = pout[0].recv()
-    # on.QQmap, on.xQQ, on.yQQ = pout[1].recv()
-    # on.IQmap, on.xIQ, on.yIQ = pout[2].recv()
-    # on.QImap, on.xQI, on.yQI = pout[3].recv()
-    # off.IImap, off.xII, off.yII = pout[4].recv()
-    # off.QQmap, off.xQQ, off.yQQ = pout[5].recv()
-    # off.IQmap, off.xIQ, off.yIQ = pout[6].recv()
-    # off.QImap, off.xQI, off.yQI = pout[7].recv()
     on.IImap, on.xII, on.yII = np.histogram2d(on.I1, on.I2, [on.xII, on.yII])
     on.QQmap, on.xQQ, on.yQQ = np.histogram2d(on.Q1, on.Q2, [on.xQQ, on.yQQ])
     on.IQmap, on.xIQ, on.yIQ = np.histogram2d(on.I1, on.Q2, [on.xIQ, on.yIQ])
@@ -166,22 +142,26 @@ def makehist2d(dispData, dicData):
 
 
 def makeheader(dispData, dicData):
-    on, off, Fac1, Fac2 = prep_data(dispData, dicData)
+    assignRaw(dispData, dicData)
+    on = dicData['hdf5_on']
+    # on, off, Fac1, Fac2 = prep_data(dispData, dicData)
     res = dicData['res']
     mapdim = dispData['mapdim']
     res.IQmapM = np.zeros([4, mapdim[0], mapdim[1]])
-    res.IQmapM[0], on.xII, on.yII = np.histogram2d(on.I1, on.I2, mapdim)
-    res.IQmapM[1], on.xQQ, on.yQQ = np.histogram2d(on.Q1, on.Q2, mapdim)
     res.IQmapM[2], on.xIQ, on.yIQ = np.histogram2d(on.I1, on.Q2, mapdim)
-    res.IQmapM[3], on.xQI, on.yQI = np.histogram2d(on.Q1, on.I2, mapdim)
-    on.headerII = ('Units,ufo,I1,' + str(on.xII[0]) + ',' + str(on.xII[-2]) +
-                   ',I2,' + str(on.yII[0]) + ',' + str(on.yII[-2]) + ',DPow,2.03,0.03')
-    on.headerQQ = ('Units,ufo,Q1,' + str(on.xQQ[0]) + ',' + str(on.xQQ[-2]) +
-                   ',Q2,' + str(on.yQQ[0]) + ',' + str(on.yQQ[-2]) + ',DPow,2.03,0.03')
-    on.headerIQ = ('Units,ufo,I1,' + str(on.xIQ[0]) + ',' + str(on.xIQ[-2]) +
-                   ',Q2,' + str(on.yIQ[0]) + ',' + str(on.yIQ[-2]) + ',DPow,2.03,0.03')
-    on.headerQI = ('Units,ufo,Q1,' + str(on.xQI[0]) + ',' + str(on.xQI[-2]) +
-                   ',I2,' + str(on.yQI[0]) + ',' + str(on.yQI[-2]) + ',DPow,2.03,0.03')
+    res.IQmapM[2], on.xIQ, on.yIQ = np.histogram2d(on.I1, on.Q2, [on.xIQ, on.xIQ])  # want them all equally binned
+    res.IQmapM[0], on.xII, on.yII = np.histogram2d(on.I1, on.I2, [on.xIQ, on.yIQ])
+    res.IQmapM[1], on.xQQ, on.yQQ = np.histogram2d(on.Q1, on.Q2, [on.xIQ, on.yIQ])
+    res.IQmapM[3], on.xQI, on.yQI = np.histogram2d(on.Q1, on.I2, [on.xIQ, on.yIQ])
+    endstr = ',' + dispData['dim1 name'] + ',' + dispData['dim1 start'] + ',' + dispData['dim1 stop']
+    on.headerII = ('Units,bin,I1,' + str(on.xII[0]) + ',' + str(on.xII[-2]) +
+                   ',I2,' + str(on.yII[0]) + ',' + str(on.yII[-2]) + endstr)
+    on.headerQQ = ('Units,bin,Q1,' + str(on.xQQ[0]) + ',' + str(on.xQQ[-2]) +
+                   ',Q2,' + str(on.yQQ[0]) + ',' + str(on.yQQ[-2]) +  endstr)
+    on.headerIQ = ('Units,bin,I1,' + str(on.xIQ[0]) + ',' + str(on.xIQ[-2]) +
+                   ',Q2,' + str(on.yIQ[0]) + ',' + str(on.yIQ[-2]) + endstr)
+    on.headerQI = ('Units,bin,Q1,' + str(on.xQI[0]) + ',' + str(on.xQI[-2]) +
+                   ',I2,' + str(on.yQI[0]) + ',' + str(on.yQI[-2]) + endstr)
 
 
 def getCovMatrix(IQdata, lags=100, hp=False):
@@ -207,18 +187,6 @@ def getCovMatrix(IQdata, lags=100, hp=False):
     rfftQ1 = rfftn(Q1[::-1], fshape)
     rfftI2 = rfftn(I2[::-1], fshape)
     rfftQ2 = rfftn(Q2[::-1], fshape)
-    # if hp:
-    #     # filter frequencies outside the lags range
-    # HPfilt = (int(sI1 / (lags * 8)))  # ignore features larger than (lags*8)
-    # fftI1 = np.concatenate((np.zeros(HPfilt), fftI1[HPfilt:]))
-    # fftQ2 = np.concatenate((np.zeros(HPfilt), fftQ1[HPfilt:]))
-    # fftI2 = np.concatenate((np.zeros(HPfilt), fftI1[HPfilt:]))
-    # fftQ1 = np.concatenate((np.zeros(HPfilt), fftQ1[HPfilt:]))
-    # rfftI1 = np.concatenate((np.zeros(HPfilt), rfftI2[HPfilt:]))
-    # rfftQ1 = np.concatenate((np.zeros(HPfilt), rfftQ2[HPfilt:]))
-    # rfftI2 = np.concatenate((np.zeros(HPfilt), rfftI2[HPfilt:]))
-    # rfftQ2 = np.concatenate((np.zeros(HPfilt), rfftQ2[HPfilt:]))
-    #
     CovMat[0, :] = irfftn((fftI1 * rfftI2))[fslice].copy()[start:stop]/fshape
     CovMat[1, :] = irfftn((fftQ1 * rfftQ2))[fslice].copy()[start:stop]/fshape
     CovMat[2, :] = irfftn((fftI1 * rfftQ2))[fslice].copy()[start:stop]/fshape
@@ -259,7 +227,7 @@ def getCovMat_wrap(dispData, data):
     return CovMat
 
 
-def correctPhase(dispData, dicData):
+def correctPhase(dispData, dicData, avg_phase_offset = 0.0):
     on, off, Fac1, Fac2 = prep_data(dispData, dicData)
     if dispData['Trigger correction']:
         CovMat = getCovMat_wrap(dispData, on)
@@ -270,7 +238,7 @@ def correctPhase(dispData, dicData):
 
     if dispData['Phase correction']:
         phase_index = np.argmax(CovMat[4])
-        phase_offset = CovMat[5][phase_index]
+        phase_offset = CovMat[5][phase_index] + avg_phase_offset
         phase = np.angle(1j * on.Q1 + on.I1)  # phase rotation
         new = np.abs(1j * on.Q1 + on.I1) * np.exp(1j * (phase - phase_offset))
         on.I1 = np.real(new)
@@ -287,6 +255,7 @@ def get_data_avg(dispData, dicData):
     res = dicData['res']
     lags = dd['lags']
     mapdim = dd['mapdim']
+
     res.n = np.zeros(2)  # photon number
     res.IQmapM_avg = np.zeros([4, mapdim[0], mapdim[1]])  # histogram map
     res.c_avg = np.zeros([10, lags * 2 + 1])  # Covariance Map inc PSI
@@ -295,15 +264,25 @@ def get_data_avg(dispData, dicData):
     res.psi_mag_avg = np.zeros(2)
     covMat = np.zeros([4, 4])
     covMatOff = np.zeros([4, 4])
+
+    intermediate_covmatrix =  np.zeros([10, lags * 2 + 1])  # Covariance Map inc PSI
+    for i in range(dd['Averages']):
+        assignRaw(dd, dicData)
+        correctPhase(dd, dicData)               # individual phase correction & assign on.CovMat
+        intermediate_covmatrix += on.CovMat
+    imed = intermediate_covmatrix
+    residual_phase_offset = np.angle(imed[0] * 1.0 - imed[1] * 1.0 + 1j * (imed[2] * 1.0 + imed[3] * 1.0))[lags]
+
     for i in range(dd['Averages']):
         assignRaw(dd, dicData)
         logging.debug('Working on trace number ' + str(dd['Trace i, j, k']))
         logging.debug('dim1 value :' + str(dicData['dim1 lin'][int(dd['Trace i, j, k'][0])]))
-        correctPhase(dd, dicData)  # assigns res.CovMat
+        correctPhase(dd, dicData, avg_phase_offset=residual_phase_offset)  # assigns on.CovMat
         makehist2d(dd, dicData)
         res.IQmapM_avg += res.IQmapM
         res.c_avg += on.CovMat
         dd['select'] = dd['select'] + 201  # for now a hard coded number!
+
         covMat0 = np.cov([on.I1, on.Q1, on.I2, on.Q2])  # for now using numpies cov function to compare with FFT
         covMat1 = np.cov([off.I1, off.Q1, off.I2, off.Q2])  # Turns out to be the same as using the FFT but seems slightly faster
         covMat += covMat0  # w. drive ON
@@ -312,29 +291,27 @@ def get_data_avg(dispData, dicData):
         covMat[1, 1] -= covMat1[1, 1]
         covMat[2, 2] -= covMat1[2, 2]
         covMat[3, 3] -= covMat1[3, 3]
+
         res.psi_mag_avg[0] += np.abs((covMat0[2, 0] - covMat0[3, 1]) + 1j*(covMat0[3, 0] + covMat0[2, 1]))  # magnitude w. drive ON
         res.psi_mag_avg[1] += np.abs((covMat1[2, 0] - covMat1[3, 1]) + 1j*(covMat1[3, 0] + covMat1[2, 1]))  # magnitude w. drive OFF
 
     res.psi_mag_avg /= dd['Averages']
+    # Photon numbers
     res.n[0] = (covMat[0, 0] + covMat[1, 1])
     res.n[1] = (covMat[2, 2] + covMat[3, 3])
+    res.n = 0.5 + res.n / dd['Averages']  # force averaged value to be larger than 0.5
+    # Covariance matrix (np.cov)
     res.covMat = covMat/dd['Averages']
     res.covMatOff = covMatOff/dd['Averages']
-    res.n = 0.5 + res.n / dd['Averages']  # force averaged value to be larger than 0.5
-    res.c_avg = res.c_avg / dd['Averages']
     res.psi = (res.covMat[2, 0] - res.covMat[3, 1]) + 1j*(res.covMat[3, 0] + res.covMat[2, 1])
+    # Covariance matrix (FFTcov)
+    res.c_avg = res.c_avg / dd['Averages']
     res.psi_avg[0, :] = (res.c_avg[0] * 1.0 - res.c_avg[1] * 1.0 + 1j * (res.c_avg[2] * 1.0 + res.c_avg[3] * 1.0))
-    res.sq, res.ineq, res.noise = get_sq_ineq(res.psi,  # res.psi_avg[0],
-                                              res.n[0],
-                                              res.n[1],
-                                              np.float(dd['f1']),
-                                              np.float(dd['f2']),
-                                              lags)
-    # res.sq = res.psi_mag_avg[0]
-    # logging.debug(str(res.psi_mag_avg))
+    res.sqph = np.angle(res.psi_avg[0][lags]) # residual Phase offset
+    # Get Squeezing value, Ineq, and noise
+    res.sq, res.ineq, res.noise = get_sq_ineq(res.psi, res.n[0], res.n[1], np.float(dd['f1']), np.float(dd['f2']), lags)
     logging.debug('n1full: ' + str(np.mean(on.I1**2+on.Q1**2-off.I1**2-off.Q1**2) ) )
     logging.debug('On Matrix:'+str(res.covMat))
-    res.sqph = np.angle(res.psi_avg[0][lags]) # residual Phase offset
 
 
 def get_sq_ineq(psi, n1, n2, f1, f2, lags):
