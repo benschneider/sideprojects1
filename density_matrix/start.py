@@ -17,7 +17,8 @@ import PyGnuplot as gp
 from histogram_plot import plot3dHist2, plot3dHist
 
 Ui_MainWindow, QMainWindow = loadUiType('density_matrix.ui')
-logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(asctime)s - [%(threadName)-10s] - %(process)s - %(message)s')
+# logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(asctime)s - [%(threadName)-10s] - %(process)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - [%(threadName)-10s] - %(process)s - %(message)s')
 
 
 class dApp(QMainWindow, Ui_MainWindow):
