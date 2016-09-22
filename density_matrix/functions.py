@@ -270,8 +270,11 @@ def get_data_avg(dispData, dicData):
         assignRaw(dd, dicData)
         correctPhase(dd, dicData)               # individual phase correction & assign on.CovMat
         intermediate_covmatrix += on.CovMat
+        dd['select'] = dd['select'] + 201  # for now a hard coded number!
+
     imed = intermediate_covmatrix
     residual_phase_offset = np.angle(imed[0] * 1.0 - imed[1] * 1.0 + 1j * (imed[2] * 1.0 + imed[3] * 1.0))[lags]
+    dd['select'] -= 201*(i+1)
 
     for i in range(dd['Averages']):
         assignRaw(dd, dicData)
