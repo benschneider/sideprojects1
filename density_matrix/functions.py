@@ -275,7 +275,7 @@ def get_data_avg(dispData, dicData):
     imed = intermediate_covmatrix
     residual_phase_offset = np.angle(imed[0] * 1.0 - imed[1] * 1.0 + 1j * (imed[2] * 1.0 + imed[3] * 1.0))[lags]
     dd['select'] -= 201*(i+1)
-    logging.debug(('Residual_phase_offset:'+str(residual_phase_offset))
+    logging.debug('Residual_phase_offset:'+str(residual_phase_offset))
 
     for i in range(dd['Averages']):
         assignRaw(dd, dicData)
