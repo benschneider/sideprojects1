@@ -42,7 +42,7 @@ def process_all_points(dispData, dicData):
     mapdim = dispData['mapdim']
     on, off, Fac1, Fac2 = prep_data(dispData, dicData)
     start_select = dispData['select']
-    pt = int(dispData['Process Num'])
+    pt = int(dispData['Process Num']/dispData['Power Averages'])
     res = dicData['res']
     res.IQmapMs_avg = np.zeros([pt, 4, mapdim[0], mapdim[1]])
     res.cs_avg = np.zeros([pt, 10, lags * 2 + 1])
@@ -56,6 +56,7 @@ def process_all_points(dispData, dicData):
     res.sqphs = np.zeros(pt)
     res.noises = np.zeros(pt)
     for n in range(pt):
+        dispData['select'] = start_select + n*dispData['Power Averages']
         get_data_avg(dispData, dicData)
         res.IQmapMs_avg[n] = res.IQmapM_avg
         res.cs_avg[n] = res.c_avg
@@ -70,7 +71,6 @@ def process_all_points(dispData, dicData):
         res.ineqs[n] = res.ineq
         res.noises[n] = res.noise
         print 'SQ:', str(res.sq), 'INEQ:', str(res.ineq)
-        dispData['select'] = start_select + n + 1
 
 
 def assignRaw(dispData, dicData):
@@ -201,36 +201,38 @@ def getCovMatrix(IQdata, lags=100, hp=False):
     return CovMat
 
 
-def getCovMat_wrap(dispData, data):
-    segment = dispData['Segment Size']
-    lags = dispData['lags']
-    hp = dispData['FFT-Filter']
-    IQdata = np.array([data.I1, data.Q1, data.I2, data.Q2])
-    num = 1
-    if segment:
-        num = len(IQdata[0]) / segment
-        modulo = len(IQdata[0]) % segment  # 4/3 = 1 + residual -> would give an error
-        if bool(modulo):
-            for n in range(IQdata.shape[0]):
-                IQdata[n] = IQdata[n][:-modulo]
-        # for n in range(IQdata.shape[0]):
-        IQdata2 = np.reshape(IQdata[:], [IQdata.shape[0], num, segment])
-        CovMat = np.zeros([10, dispData['lags'] * 2 + 1])
-        for i in range(num):
-            CovMat += getCovMatrix(IQdata2[:, i], lags=lags, hp=hp)
-        CovMat = CovMat / np.float(num)
-        psi = (1j * (CovMat[2, :] + CovMat[3, :]) + (CovMat[0, :] - CovMat[1, :]))
-        CovMat[4, :] = np.abs(psi)
-        CovMat[5, :] = np.angle(psi)
-    else:
-        CovMat = getCovMatrix(IQdata, lags=lags, hp=hp)
-    return CovMat
+# Segmenting the data does not help ! -> no wrapper needed
+# def getCovMat_wrap(dispData, data):
+#     # segment = dispData['Segment Size']
+#     lags = dispData['lags']
+#     hp = dispData['FFT-Filter']
+#     IQdata = np.array([data.I1, data.Q1, data.I2, data.Q2])
+#     # if segment:
+#     #     num = len(IQdata[0]) / segment
+#     #     modulo = len(IQdata[0]) % segment  # 4/3 = 1 + residual -> would give an error
+#     #     if bool(modulo):
+#     #         for n in range(IQdata.shape[0]):
+#     #             IQdata[n] = IQdata[n][:-modulo]
+#     #     # for n in range(IQdata.shape[0]):
+#     #     IQdata2 = np.reshape(IQdata[:], [IQdata.shape[0], num, segment])
+#     #     CovMat = np.zeros([10, dispData['lags'] * 2 + 1])
+#     #     for i in range(num):
+#     #         CovMat += getCovMatrix(IQdata2[:, i], lags=lags, hp=hp)
+#     #     CovMat = CovMat / np.float(num)
+#     #     psi = (1j * (CovMat[2, :] + CovMat[3, :]) + (CovMat[0, :] - CovMat[1, :]))
+#     #     CovMat[4, :] = np.abs(psi)
+#     #     CovMat[5, :] = np.angle(psi)
+#     # else:
+#     CovMat = getCovMatrix(IQdata, lags=lags, hp=hp)
+#     return CovMat
 
 
 def correctPhase(dispData, dicData, avg_phase_offset = 0.0):
     on, off, Fac1, Fac2 = prep_data(dispData, dicData)
+    IQdata_on = np.array([on.I1, on.Q1, on.I2, on.Q2])
+    IQdata_off = np.array([off.I1, off.Q1, off.I2, off.Q2])
     if dispData['Trigger correction']:
-        CovMat = getCovMat_wrap(dispData, on)
+        CovMat = getCovMatrix(IQdata_on, lags=dispData['lags'])
         dMag = f1pN2(CovMat[4], dispData['lags'], d=1)
         on.I1 = np.roll(on.I1, dMag)  # Correct 1pt trigger jitter
         on.Q1 = np.roll(on.Q1, dMag)
@@ -245,7 +247,9 @@ def correctPhase(dispData, dicData, avg_phase_offset = 0.0):
         on.Q1 = np.imag(new)
         logging.debug('Phase corrected ' + str(phase_offset) + 'rad')
 
-    on.CovMat = getCovMat_wrap(dispData, on)  # slower but allows for further phase corrections
+    IQdata_on = np.array([on.I1, on.Q1, on.I2, on.Q2])
+    IQdata_off = np.array([off.I1, off.Q1, off.I2, off.Q2])
+    on.CovMat = getCovMatrix(IQdata_on, lags=dispData['lags'])
     # off.CovMat = getCovMat_wrap(dispData, off)
 
 
@@ -265,40 +269,46 @@ def get_data_avg(dispData, dicData):
     covMat = np.zeros([4, 4])
     covMatOff = np.zeros([4, 4])
 
-    intermediate_covmatrix =  np.zeros([10, lags * 2 + 1])  # Covariance Map inc PSI
-    for i in range(dd['Averages']):
-        assignRaw(dd, dicData)
-        correctPhase(dd, dicData)               # individual phase correction & assign on.CovMat
-        intermediate_covmatrix += on.CovMat
-        dd['select'] = dd['select'] + 201  # for now a hard coded number!
+    startpos = dd['select']
+    for jj in range(dd['Power Averages']):
+        dd['select'] = startpos + jj
+        intermediate_covmatrix =  np.zeros([10, lags * 2 + 1])  # Covariance Map inc PSI
+        for i in range(dd['Averages']):
+            assignRaw(dd, dicData)
+            correctPhase(dd, dicData)               # individual phase correction & assign on.CovMat
+            intermediate_covmatrix += on.CovMat
+            dd['select'] = dd['select'] + dd['dim1 pt']  # Jump to next section
 
     imed = intermediate_covmatrix
     residual_phase_offset = np.angle(imed[0] * 1.0 - imed[1] * 1.0 + 1j * (imed[2] * 1.0 + imed[3] * 1.0))[lags]
-    dd['select'] -= 201*(i+1)
     logging.debug('Residual_phase_offset:'+str(residual_phase_offset))
+    dd['select'] = startpos
 
-    for i in range(dd['Averages']):
-        assignRaw(dd, dicData)
-        logging.debug('Working on trace number ' + str(dd['Trace i, j, k']))
-        logging.debug('dim1 value :' + str(dicData['dim1 lin'][int(dd['Trace i, j, k'][0])]))
-        correctPhase(dd, dicData, avg_phase_offset=residual_phase_offset)  # assigns on.CovMat
-        makehist2d(dd, dicData)
-        res.IQmapM_avg += res.IQmapM
-        res.c_avg += on.CovMat
-        dd['select'] = dd['select'] + 201  # for now a hard coded number!
+    for jj in range(dd['Power Averages']):
+        dd['select'] = startpos + jj
+        for i in range(dd['Averages']):
+            assignRaw(dd, dicData)
+            logging.debug('Working on trace number ' + str(dd['Trace i, j, k']))
+            logging.debug('dim1 value :' + str(dicData['dim1 lin'][int(dd['Trace i, j, k'][0])]))
+            correctPhase(dd, dicData, avg_phase_offset=residual_phase_offset)  # assigns on.CovMat
+            makehist2d(dd, dicData)
+            res.IQmapM_avg += res.IQmapM
+            res.c_avg += on.CovMat
+            dd['select'] = dd['select'] + 201  # for now a hard coded number!
+            #
+            covMat0 = np.cov([on.I1, on.Q1, on.I2, on.Q2])  # for now using numpies cov function to compare with FFT
+            covMat1 = np.cov([off.I1, off.Q1, off.I2, off.Q2])  # Turns out to be the same as using the FFT but seems slightly faster
+            covMat += covMat0  # w. drive ON
+            covMatOff += covMat1  # w. drive OFF
+            covMat[0, 0] -= covMat1[0, 0]
+            covMat[1, 1] -= covMat1[1, 1]
+            covMat[2, 2] -= covMat1[2, 2]
+            covMat[3, 3] -= covMat1[3, 3]
+            #
+            res.psi_mag_avg[0] += np.abs((covMat0[2, 0] - covMat0[3, 1]) + 1j*(covMat0[3, 0] + covMat0[2, 1]))  # magnitude w. drive ON
+            res.psi_mag_avg[1] += np.abs((covMat1[2, 0] - covMat1[3, 1]) + 1j*(covMat1[3, 0] + covMat1[2, 1]))  # magnitude w. drive OFF
 
-        covMat0 = np.cov([on.I1, on.Q1, on.I2, on.Q2])  # for now using numpies cov function to compare with FFT
-        covMat1 = np.cov([off.I1, off.Q1, off.I2, off.Q2])  # Turns out to be the same as using the FFT but seems slightly faster
-        covMat += covMat0  # w. drive ON
-        covMatOff += covMat1  # w. drive OFF
-        covMat[0, 0] -= covMat1[0, 0]
-        covMat[1, 1] -= covMat1[1, 1]
-        covMat[2, 2] -= covMat1[2, 2]
-        covMat[3, 3] -= covMat1[3, 3]
-
-        res.psi_mag_avg[0] += np.abs((covMat0[2, 0] - covMat0[3, 1]) + 1j*(covMat0[3, 0] + covMat0[2, 1]))  # magnitude w. drive ON
-        res.psi_mag_avg[1] += np.abs((covMat1[2, 0] - covMat1[3, 1]) + 1j*(covMat1[3, 0] + covMat1[2, 1]))  # magnitude w. drive OFF
-
+    dd['select'] = startpos
     res.psi_mag_avg /= dd['Averages']
     # Photon numbers
     res.n[0] = (covMat[0, 0] + covMat[1, 1])

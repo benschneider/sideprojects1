@@ -64,7 +64,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         dD['Phase correction'] = True
         dD['Trigger correction'] = True
         dD['FFT-Filter'] = False
-        dD['Segment Size'] = 0
+        dD['Power Averages'] = 1
         dD['Averages'] = 1
         dD['Low Pass'] = 0
         dD['dim1 pt'] = 201
@@ -205,7 +205,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         dD['Phase correction'] = bool(eval(str(table.item(9, 0).text())))
         dD['Trigger correction'] = bool(eval(str(table.item(10, 0).text())))
         dD['FFT-Filter'] = bool(eval(str(table.item(11, 0).text())))
-        dD['Segment Size'] = int(eval(str(table.item(12, 0).text())))
+        dD['Power Averages'] = int(eval(str(table.item(12, 0).text())))
         dD['Low Pass'] = float(table.item(13, 0).text())
         dD['Averages'] = int(table.item(14, 0).text())
         dD['dim1 pt'] = int(table.item(15, 0).text())
@@ -249,7 +249,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         table.setItem(9, 0, QTableWidgetItem(str(d['Phase correction'])))
         table.setItem(10, 0, QTableWidgetItem(str(d['Trigger correction'])))
         table.setItem(11, 0, QTableWidgetItem(str(d['FFT-Filter'])))
-        table.setItem(12, 0, QTableWidgetItem(str(d['Segment Size'])))
+        table.setItem(12, 0, QTableWidgetItem(str(d['Power Averages'])))
         table.setItem(13, 0, QTableWidgetItem(str(d['Low Pass'])))
         table.setItem(14, 0, QTableWidgetItem(str(d['Averages'])))
         table.setItem(15, 0, QTableWidgetItem(str(d['dim1 pt'])))
