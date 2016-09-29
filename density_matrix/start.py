@@ -59,7 +59,7 @@ class dApp(QMainWindow, Ui_MainWindow):
         dD['cgain22 stop'] = 1.4240e7
         dD['B'] = 5e5
         dD['select'] = 0
-        dD['mapdim'] = [20, 20]
+        dD['mapdim'] = [200, 200]
         dD['lags'] = 1000
         dD['Phase correction'] = True
         dD['Trigger correction'] = True
