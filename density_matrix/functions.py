@@ -262,7 +262,6 @@ def get_phase_trigger_cov(on, phase_offset2=0.0, lags=1000):
 	new = np.abs(1j * on.Q1 + on.I1) * np.exp(1j * (phase - phase_offset))
 	on.I1 = np.real(new)
 	on.Q1 = np.imag(new)
-	logging.debug('Phase corrected ' + str(phase_offset) + 'rad')
 	return phase_offset, dMag
 
 
@@ -273,6 +272,7 @@ def correct_phase_trigger(on, phase_offset, trigger):
 	new = np.abs(1j * on.Q1 + on.I1) * np.exp(1j * (phase - phase_offset))
 	on.I1 = np.real(new)
 	on.Q1 = np.imag(new)
+	logging.debug('Phase, Trigger corrected:' + str(phase_offset) + ' rad , ' +str(trigger) + ' pt')
 
 
 def get_data_avg2(dispData, dicData):
