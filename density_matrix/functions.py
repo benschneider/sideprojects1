@@ -71,7 +71,7 @@ def process_all_points(dispData, dicData):
 		res.sqphs[n] = res.sqph
 		res.ineqs[n] = res.ineq
 		res.noises[n] = res.noise
-	    logging.debug('SQ:' + str(res.sq) + 'INEQ:' + str(res.ineq))
+		logging.debug('SQ:' + str(res.sq) + 'INEQ:' + str(res.ineq))
 
 
 def assignRaw(dispData, dicData):
