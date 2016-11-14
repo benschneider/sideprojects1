@@ -325,24 +325,31 @@ def get_data_avg2(dispData, dicData):
 	for j in range(yavg):
 		covMat1 = np.zeros([4, 4])
 		covMat1_off = np.zeros([4, 4])
+		# covMat1_avg = np.zeros([4, 4])
 		for i in range(xavg):
 			idx = selected + j + i*dispData['dim1 pt']
 			phase_list[idx] += phase_offset2
 			dispData['select'] = idx
 			assignRaw(dispData, dicData)                                    # load next 'on' I,Q data
 			correct_phase_trigger(on, phase_list[idx], trigger_list[idx])
+			correct_phase_trigger(off, phase_list[idx], trigger_list[idx])
 			covMat1 += np.cov([on.I1, on.Q1, on.I2, on.Q2])                 # average corrected matrix (Drive ON)
 			covMat1_off += np.cov([off.I1, off.Q1, off.I2, off.Q2])         # average corrected matrix (Drive OFF)
-			# covMat1 - covMat1_off                                           # subtract ON - OFF (req phase corrections)
-			covMat1[1, 0] -= covMat1_off[0, 0]                              # subtract ON - OFF in photon numbers
-			covMat1[1, 1] -= covMat1_off[1, 1]
-			covMat1[2, 2] -= covMat1_off[2, 2]
-			covMat1[3, 3] -= covMat1_off[3, 3]
+			# covMat1 -= covMat1_off                                           # subtract ON - OFF (req phase corrections)
+			# covMat1_avg += covMat1  # average end result
 			makehist2d(dispData, dicData)
 			res.IQmapM_avg += res.IQmapM
 			res.c_avg += getCovMatrix([on.I1, on.Q1, on.I2, on.Q2], lags=lags)
 			res.psi_mag_avg += np.abs( (covMat1[2, 0] - covMat1[3, 1]) + 1j * (covMat1[3, 0] + covMat1[2, 1]))
 
+		covMat1[0, 0] -= covMat1_off[0, 0]                              # subtract ON - OFF in photon numbers
+		covMat1[0, 1] -= covMat1_off[0, 1]                              # subtract ON - OFF in photon numbers
+		covMat1[1, 0] -= covMat1_off[1, 0]
+		covMat1[1, 1] -= covMat1_off[1, 1]
+		covMat1[2, 2] -= covMat1_off[2, 2]
+		covMat1[2, 3] -= covMat1_off[2, 3]
+		covMat1[3, 2] -= covMat1_off[3, 2]
+		covMat1[3, 3] -= covMat1_off[3, 3]
 		covMat1 /= xavg
 		covMat1_off /= xavg
 		phase_offset1 = np.angle( (covMat1[2, 0] - covMat1[3, 1]) + 1j * (covMat1[3, 0] + covMat1[2, 1]))
